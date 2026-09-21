@@ -7,7 +7,13 @@ authors = [
     { name = "Andrew Garwood", email = "andrew.garwood.949@gmail.com" }
 ]
 requires-python = ">=3.11"
-dependencies = []
+dependencies = [
+    "lute",
+    "pyqi",
+    "noxl",
+    "pywin32>=312",
+    "pywinauto>=0.6.9",
+]
 
 [project.scripts]
 resin = "resin:main"
@@ -22,3 +28,5 @@ where = ["."]
 
 [tool.uv.sources]
 lute = { path = "../lute", editable = true }
+pyqi = { path = "../pyqi", editable = true }
+noxl = { path = "../noxl", editable = true }
