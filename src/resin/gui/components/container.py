@@ -1,103 +1,268 @@
-"""
-*`@file`* `resin/gui/components/container`
-
-- [SAP GuiContainer](https://help.sap.com/docs/sap_gui_for_windows/b47d018c3b9b45e897faf66a6c0885a8/197bc09d272646a097a9a2fff0bb03e7.html).
-
-"""
 from __future__ import annotations
-from abc import ABC
-import win32com.client as win32
-from typing import (Type, TypeVar, Optional, Any, Generic, overload, Literal)
-from lute import (LogMsg, annotate)
-from .component import (Component, VComponent)
-from ..utils.concurrency import (busy_safe)
-from ..utils.debug import (debug_component)
 
-U = TypeVar('U')
-T = TypeVar('T', bound=Component)
-# TODO maybe add type for parent component ? e.g. parent of connection is application
-# parent of session is connection....
+from collections.abc import Iterator
+from typing import (Any, Literal, Optional, Type, TypeVar, overload, Generic)
+import lute
+from pyqi import Array
+from ..com.gateway import ComGateway
+from ..context import SapContext
+from ..exceptions import (
+    SapComponentNotFoundError,
+    SapComError,
+    SapGuiError,
+)
+from .component import Component
+from .registry import wrap_dispatch, generate_sap_type
+from .._supports_find import FindMixin
 
-class BaseContainer(ABC, Component, Generic[U]):
+LogMsg = lute.LogMsg
+ComponentT = TypeVar("ComponentT", bound=Component)
+ChildT = TypeVar("ChildT", bound=Component)
+
+class Container(Component, Generic[ChildT]):
     """
-    *`@extends`* `Component(ComProxy)`
-    
-    Adds wrappers for:
-    - `Children` 
-    - `FindById`
+    Base wrapper for session-bound components supporting FindById.
+
+    This class intentionally represents only component containers. Application
+    and Connection should not inherit this class because they are not bound to
+    one session and cannot safely use session-based FindById operations.
     """
-    @property
-    def children(self) -> list[win32.CDispatch]:
-        """ `_com.Children` """
-        arr: list[win32.CDispatch] = []
-        _com = self._com
-        for i in range(_com.Children.Count):
-            c = _com.Children(i)
-            if not isinstance(c, win32.CDispatch):
-                raise RuntimeError(LogMsg(
-                    f"child @ self._com.Children({i=}) is not CDispatch",
-                    child=annotate(c),
-                    self_com=annotate(_com)
-                ))
-            arr.append(c)
-        return arr
+
+    def __init__(
+        self,
+        *,
+        gateway: ComGateway,
+        context: SapContext,
+    ) -> None:
+        super().__init__(
+            gateway=gateway,
+            context=context,
+        )
 
     @property
-    def _com(self) -> win32.CDispatch:
-        """ `Container._com = self._resolve()` """
-        return self._resolve()
+    def children(self) -> tuple[ChildT, ...]:
+        """
+        Return wrapped immediate children.
 
-    @overload
-    def find(self, _id: str, /) -> Optional[Any]: ...
+        A tuple is returned so callers do not mistake the result for a live
+        mutable SAP GUI collection.
+        """
+        dispatch = self._resolve()
 
-    @overload
-    def find(self, _id: str, / cls: Type[T]) -> Optional[T]: ...
-
-    @overload
-    def find(self, _id: str, /, cls: Type[T], _raise: Literal[True]=True) -> T: ...
-
-    @busy_safe()
-    def find(self, _id: str, / cls: Optional[Type[T]]=None, _raise: bool=False):
-        _com: Optional[win32.CDispatch] = None
         try:
-            _com = self._com
-            obj = _com.FindById(_id, False) # _raise
-            if (not obj):
-                if (_raise):
-                    raise RuntimeError("FindById returned None")
-                return None
-            if (cls is None):
-                return Component(
-                    _id=obj.Id, 
-                    session_id=self._session_id, 
-                    conn_id=self._conn_id
-                )
-            if (cls.__name__ == "Connection"):
-                return cls(conn_id=obj.Id)
-            return cls(
-                _id=obj.Id, 
-                session_id=self._session_id, 
-                conn_id=self._conn_id
-            )
+            com_children = dispatch.Children
+            count = int(com_children.Count)
         except Exception as e:
-            raise RuntimeError(LogMsg.err(
-                e,
-                f"Unable to find child component with id={_id}",
-                self=debug_component(_com) if (_com) else annotate(self),
-                cls=annotate(cls),
-                _raise=_raise
-            ))
+            raise SapComError(
+                f"Unable to enumerate children of component {self.id!r}"
+            ) from e
+
+        children: list[ChildT] = []
+
+        for index in range(count):
+            try:
+                child_dispatch = com_children(index)
+            except Exception as e:
+                raise SapComError(
+                    f"Unable to read child {index} of component {self.id!r}"
+                ) from e
+
+            if child_dispatch is None:
+                raise SapComError(
+                    f"Child {index} of component {self.id!r} was None"
+                )
+
+            children.append(
+                wrap_dispatch(
+                    child_dispatch,
+                    gateway=self.gateway,
+                    context=self.context,
+                )
+            )
+
+        return tuple(children)
+
+    def iter_children(self) -> Iterator[ChildT]:
+        """
+        Iterate through the current child snapshot.
+
+        The snapshot behavior avoids holding a live COM collection while user
+        code is running.
+        """
+        yield from self.children
 
 
-class BaseVContainer(VComponent, BaseContainer[U]):
-    """
-    ***@not_implemented*** - methods will raise `NotImplementedError()`
-    
-    [SAP GuiVContainer](https://help.sap.com/docs/sap_gui_for_windows/b47d018c3b9b45e897faf66a6c0885a8/76a8c4e46d1d4f8caa5f70b6dcfc5f34.html)
-    """
-    def find_all_by_name(self, name: str, /, _type: str) -> list[U]:
-        """ `self._com.FindAllByName(name, _type)` """
-        raise NotImplementedError()
-    def find_all_by_name_ex(self, name: str, /, _type_as_number: int) -> list[U]:
-        """ `self._com.FindAllByNameEx(name, _type_as_number)` """
-        raise NotImplementedError()
+    @overload
+    def find(
+        self,
+        component_id: str,
+        /,
+        *,
+        component_cls: None = None,
+        _raise: Literal[False] = False,
+    ) -> Component | None: ...
+
+    @overload
+    def find(
+        self,
+        component_id: str,
+        /,
+        *,
+        component_cls: None = None,
+        _raise: Literal[True],
+    ) -> Component: ...
+
+    @overload
+    def find(
+        self,
+        component_id: str,
+        /,
+        *,
+        component_cls: type[ComponentT],
+        _raise: Literal[True]=True,
+    ) -> ComponentT:
+        ...
+
+    @overload
+    def find(
+        self,
+        component_id: str,
+        /,
+        *,
+        component_cls: type[ComponentT],
+        _raise: Literal[False] = False,
+    ) -> ComponentT | None:
+        ...
+
+    @overload
+    def find(
+        self,
+        component_id: str,
+        /,
+        *,
+        component_cls: None = None,
+        _raise: bool,
+    ) -> Component | None: ...
+
+    @overload
+    def find(
+        self,
+        component_id: str,
+        /,
+        *,
+        component_cls: type[ComponentT],
+        _raise: bool,
+    ) -> ComponentT | None: ...
+
+    def find(
+        self,
+        component_id: str,
+        /,
+        *,
+        component_cls: type[ComponentT] | None = None,
+        _raise: bool = False,
+    ) -> Component | ComponentT | None:
+        if not isinstance(component_id, str) or not component_id.strip():
+            raise ValueError(
+                LogMsg(
+                    "Invalid SAP GUI component ID",
+                    expected="non-empty str",
+                    received=lute.annotate(component_id),
+                )
+            )
+
+        if component_cls is not None and (
+            not isinstance(component_cls, type)
+            or not issubclass(component_cls, Component)
+        ):
+            raise TypeError(
+                LogMsg(
+                    "Invalid SAP GUI component wrapper class",
+                    expected="Component subclass",
+                    received=lute.annotate(component_cls),
+                )
+            )
+
+        try:
+            obj = self.gateway.find_component(
+                self.connection_id,
+                self.session_id,
+                component_id,
+                raise_on_missing=_raise,
+            )
+
+            if obj is None:
+                return None
+
+            if component_cls is None:
+                return wrap_dispatch(
+                    obj,
+                    gateway=self.gateway,
+                    context=self.context,
+                )
+
+            try:
+                actual_id = str(obj.Id)
+            except Exception as e:
+                raise SapComError(
+                    LogMsg.err(
+                        e,
+                        "Resolved SAP GUI component has no usable ID",
+                        requested_component_id=component_id,
+                        dispatch=lute.annotate(obj),
+                    )
+                ) from e
+
+            return component_cls(
+                gateway=self.gateway,
+                context=self.context.with_component(actual_id),
+            )
+
+        except SapGuiError:
+            raise
+        except Exception as e:
+            raise SapComError(
+                LogMsg.err(
+                    e,
+                    "Unable to find SAP GUI component",
+                    component_id=component_id,
+                    component_cls=(
+                        None
+                        if component_cls is None
+                        else (
+                            f"{component_cls.__module__}."
+                            f"{component_cls.__qualname__}"
+                        )
+                    ),
+                    raise_on_missing=_raise,
+                    container_id=self.id,
+                    connection_id=self.connection_id,
+                    session_id=self.session_id,
+                )
+            ) from e
+
+
+    def exists(
+        self,
+        component_id: str | None = None,
+        /,
+    ) -> bool:
+        """
+        Check this container or one descendant.
+
+        ``container.exists()`` checks whether this container still exists.
+        ``container.exists("wnd[0]/usr/...")`` checks a descendant.
+        """
+        if component_id is None:
+            return super().exists()
+
+        if not isinstance(component_id, str) or not component_id.strip():
+            raise ValueError(
+                "component_id must be a non-empty string"
+            )
+
+        return self.gateway.component_exists(
+            self.connection_id,
+            self.session_id,
+            component_id,
+        )

@@ -1,0 +1,44 @@
+application.py -> connection.py -> session.py
+session.py -> component.py
+
+
+
+gui/
+├── com/
+│   ├── gateway.py
+│   ├── runtime.py
+│   └── types.py
+├── components/
+│   ├── component.py
+│   ├── container.py
+│   └── registry.py
+├── core/
+│   ├── application.py
+│   ├── connection.py
+│   └── session.py
+├── utils/
+│   ├── validation.py
+│   └── waits.py
+├── context.py
+├── exceptions.py
+└── config.py
+
+
+Specific ownership:
+    com/gateway.py: SAP object lookup and FindById
+    com/runtime.py: COM apartment initialization and message pumping
+    ~~utils/validation.py: reusable input validation~~
+    utils/waits.py: polling and timeout mechanics
+    components/container.py: typed wrapper construction only
+    lute: structured messages and logger creation
+Final recommendations
+    Keep TYPE_CHECKING and the few method-local imports needed to break real cycles.
+    Do not permit Container.find() to construct connections or sessions.
+    Delegate actual lookup to ComGateway.find_component().
+    Preserve SapComponentNotFoundError rather than converting it into SapComError.
+    Make component_cls and _raise keyword-only.
+    Use Literal overloads for precise return typing.
+    Replace duplicated static validators with returning functions in utils.validation.
+    Move COM apartment and message-pump behavior to com.runtime.
+    Avoid silent exception suppression, especially around COM initialization and pumping.
+    Add static type-checking tests for overload behavior, in addition to runtime tests.

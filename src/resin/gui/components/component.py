@@ -1,136 +1,268 @@
-"""
-*`@file`* `resin/gui/components/component`
-
-- [SAP GuiComponent](https://help.sap.com/docs/sap_gui_for_windows/b47d018c3b9b45e897faf66a6c0885a8/8ba9356d3c524ee2b3ded3f97b0a86ba.html).
-"""
 from __future__ import annotations
-import win32com.client as win32
-from typing import Any, Optional
-from lute import (LogMsg)
-from ._proxy import (ComProxy)
-from ._collection import Collection
+
+from typing import Any, Self
+
+from .registry import wrap_dispatch
+
+from ..com.gateway import ComGateway
+from ..com.types import DispatchLike
+from ..context import SapContext
+from ..exceptions import SapComError
+
+from ..core.session import Session
 
 
-class Component(ComProxy):
+class Component:
     """
-    *`@extends`* `ComProxy`
+    Base wrapper for a session-bound SAP GUI component.
+
+    Components retain stable SAP IDs, not a child COM dispatch object. The
+    dispatch object is resolved for each operation on the calling thread.
     """
+
     def __init__(
-        self, 
-        *, 
-        conn_id: Optional[str] = None, 
-        session_id: Optional[str] = None, 
-        _id: Optional[str] = None
-    ):
-        super().__init__(conn_id=conn_id, session_id=session_id, _id=_id)
+        self,
+        *,
+        gateway: ComGateway,
+        context: SapContext,
+    ) -> None:
+        # Validate immediately so invalid component wrappers cannot exist.
+        context.require_component()
+
+        self._gateway = gateway
+        self._context = context
 
     @property
-    def _com(self) -> win32.CDispatch:
-        """ = `self._resolve()` = `ComProxy._com_session().FindById(self._id)` """
-        return self._resolve()
+    def gateway(self) -> ComGateway:
+        return self._gateway
+
+    @property
+    def context(self) -> SapContext:
+        return self._context
+
+    @property
+    def connection_id(self) -> str:
+        return self._context.require_component()[0]
+
+    @property
+    def session_id(self) -> str:
+        return self._context.require_component()[1]
 
     @property
     def id(self) -> str:
-        if not isinstance(self._id, str):
-            raise RuntimeError(LogMsg(f"[Component.id] self._id is not a string"))
-        return self._id
+        return self._context.require_component()[2]
 
     @property
-    def name(self) -> str:
-        return str(self._com.Name)
+    def _com(self) -> DispatchLike:
+        """
+        Resolve the current COM object.
 
-    @property
-    def type(self) -> str:
-        return str(self._com.Type)
+        Kept as a property for compatibility with your existing wrapper code.
+        New code may prefer ``_resolve()`` because the operation is explicit.
+        """
+        return self._resolve()
 
-    @property
-    def type_as_number(self) -> int:
-        return self._com.TypeAsNumber
-    
-    @property 
-    def container_type(self) -> bool:
-        return self._com.ContainerType
+    def _resolve(self) -> DispatchLike:
+        connection_id, session_id, component_id = (
+            self._context.require_component()
+        )
 
-    @property
-    def parent(self) -> Component:
-        # TODO: maybe remove this and only use com_parent where necessary
-        p = self._com.Parent
-        if not isinstance(p, win32.CDispatch):
-            raise RuntimeError(
-                f"[Component.parent] parent is not CDispatch {type(p)=}"
+        result = self._gateway.find_component(
+            connection_id,
+            session_id,
+            component_id,
+            raise_on_missing=True,
+        )
+
+        # ``raise_on_missing=True`` guarantees a dispatch object.
+        if result is None:
+            raise SapComError(
+                f"Component resolution unexpectedly returned None: "
+                f"{component_id!r}"
             )
-        
-        return Component(
-            conn_id=self._conn_id,
-            session_id=self._session_id,
-            _id=p.Id
+
+        return result
+
+    @property
+    def session(self) -> Session:
+        """
+        Return a session wrapper for this component.
+
+        The local import avoids a component -> session -> component import
+        cycle during module initialization.
+        """
+
+        return Session(
+            gateway=self._gateway,
+            context=SapContext(
+                application_id=self._context.application_id,
+                connection_id=self.connection_id,
+                session_id=self.session_id,
+            ),
         )
 
     @property
-    def com_parent(self) -> win32.CDispatch:
-        """ *`@returns`* `self._com.Parent` """
-        p = self._com.Parent
-        if not isinstance(p, win32.CDispatch):
-            raise RuntimeError(
-                f"[Component.com_parent] parent is not CDispatch {type(p)=}"
+    def name(self) -> str:
+        return self._read_string("Name")
+
+    @property
+    def type(self) -> str:
+        return self._read_string("Type")
+
+    @property
+    def type_as_number(self) -> int:
+        value = self._read("TypeAsNumber")
+
+        try:
+            return int(value)
+        except (TypeError, ValueError) as exc:
+            raise SapComError(
+                f"Component {self.id!r} returned invalid TypeAsNumber "
+                f"value {value!r}"
+            ) from exc
+
+    @property
+    def container_type(self) -> bool:
+        return bool(self._read("ContainerType"))
+
+    @property
+    def parent(self) -> Component:
+        parent_dispatch = self._read("Parent")
+
+        if parent_dispatch is None:
+            raise SapComError(
+                f"Component {self.id!r} has no parent"
             )
-        return p
 
-    def __repr__(self):
-        cls_name = self.__class__.__name__
         try:
-            return f"<{cls_name} id={self.id}>"
-        except Exception:
-            return f"<{cls_name}>"
+            parent_id = str(parent_dispatch.Id)
+        except Exception as exc:
+            raise SapComError(
+                f"Parent of component {self.id!r} has no usable ID"
+            ) from exc
 
 
-class VComponent(Component):
-    """
-    Python analogue of [SAP GuiVComponent](https://help.sap.com/docs/sap_gui_for_windows/b47d018c3b9b45e897faf66a6c0885a8/26824bb464b045558bf5c71a617aa7fb.html).
-
-    "The GuiVComponent interface is exposed by all visual objects, such as windows, buttons or text fields."
-    """
-
-    @property
-    def text(self) -> str:
-        return str(self._com.Text)
+        return wrap_dispatch(
+            parent_dispatch,
+            gateway=self._gateway,
+            context=self._context.with_component(parent_id),
+        )
 
     @property
-    def changeable(self) -> bool:
-        """ 'An object is changeable if it is neither disabled nor read-only.' """
-        return bool(self._com.Changeable)
+    def com_parent(self) -> DispatchLike:
+        """
+        Return the raw parent dispatch object.
 
-    @property
-    def enabled(self) -> bool:
+        Prefer ``parent`` in library code. This property exists for operations
+        that cannot yet be represented by a wrapper.
+        """
+        parent = self._read("Parent")
+
+        if parent is None or not hasattr(parent, "Id"):
+            raise SapComError(
+                f"Component {self.id!r} returned an invalid parent object"
+            )
+
+        return parent
+
+    def exists(self) -> bool:
+        return self._gateway.component_exists(
+            self.connection_id,
+            self.session_id,
+            self.id,
+        )
+
+    def set_focus(self) -> Self:
+        dispatch = self._resolve()
+
         try:
-            return bool(self._com.Enabled)
-        except Exception as e:
-            return True
+            dispatch.SetFocus()
+        except Exception as exc:
+            raise SapComError(
+                f"Unable to set focus on component {self.id!r}"
+            ) from exc
 
-    def dump_state(self, inner_obj: str="") -> Any: # Collection
-        return self._com.DumpState(inner_obj)
-    
-    def set_focus(self):
-        self._com.SetFocus()
         return self
 
-    
-    def visualize(self, on: bool, inner_obj: str=""):
-        """_summary_
+    def visualize(
+        self,
+        enabled: bool = True,
+        inner_object: str = "",
+    ) -> Self:
+        if not isinstance(enabled, bool):
+            raise TypeError("enabled must be a bool")
 
-        Args:
-            on (bool):
-                - True: will display a red frame around the specified component
-                - False: remove red frame
-            inner_obj (str, optional): _description_. Defaults to "".
+        if not isinstance(inner_object, str):
+            raise TypeError("inner_object must be a string")
 
-        Returns:
-            _type_: _description_
+        dispatch = self._resolve()
+
+        try:
+            dispatch.Visualize(enabled, inner_object)
+        except Exception as exc:
+            raise SapComError(
+                f"Unable to visualize component {self.id!r}"
+            ) from exc
+
+        return self
+
+    def diagnostic_state(self) -> dict[str, object]:
         """
-        return self._com.Visualize(on, inner_obj)
+        Safely collect commonly useful SAP GUI properties.
 
+        This method is suitable for logging because an unavailable property
+        does not abort collection of the remaining properties.
+        """
+        dispatch = self._resolve()
+        properties = (
+            "Id",
+            "Name",
+            "Type",
+            "Text",
+            "Changeable",
+            "Enabled",
+            "Visible",
+            "ContainerType",
+        )
 
-class ComponentCollection(Collection[Component]):
-    """ `Collection<Component>` """
-    ...
+        state: dict[str, object] = {}
 
+        for property_name in properties:
+            try:
+                state[property_name] = getattr(dispatch, property_name)
+            except Exception as exc:
+                state[property_name] = (
+                    f"<unavailable: {type(exc).__name__}: {exc}>"
+                )
+
+        return state
+
+    def _read(self, property_name: str) -> Any:
+        dispatch = self._resolve()
+
+        try:
+            return getattr(dispatch, property_name)
+        except Exception as exc:
+            raise SapComError(
+                f"Unable to read property {property_name!r} from "
+                f"component {self.id!r}"
+            ) from exc
+
+    def _read_string(self, property_name: str) -> str:
+        value = self._read(property_name)
+
+        if value is None:
+            raise SapComError(
+                f"Component {self.id!r} returned None for "
+                f"{property_name!r}"
+            )
+
+        return str(value)
+
+    def __repr__(self) -> str:
+        return (
+            f"<{type(self).__name__} "
+            f"connection_id={self.connection_id!r} "
+            f"session_id={self.session_id!r} "
+            f"id={self.id!r}>"
+        )
