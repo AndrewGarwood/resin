@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Any, Self
+from typing import TYPE_CHECKING, Any, Self
 
 from .registry import wrap_dispatch
 
@@ -9,7 +9,8 @@ from ..com.types import DispatchLike
 from ..context import SapContext
 from ..exceptions import SapComError
 
-from ..core.session import Session
+if TYPE_CHECKING:
+    from ..core.session import Session
 
 
 class Component:
@@ -91,7 +92,7 @@ class Component:
         The local import avoids a component -> session -> component import
         cycle during module initialization.
         """
-
+        from ..core.session import Session
         return Session(
             gateway=self._gateway,
             context=SapContext(

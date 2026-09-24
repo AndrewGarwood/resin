@@ -5,6 +5,8 @@ from typing import TYPE_CHECKING, Any, TypeVar, overload
 
 import pythoncom
 from win32com.client import CDispatch
+
+from resin.gui.com.runtime import validate_polling
 from ..com.gateway import ComGateway
 from ..com.types import DispatchLike
 from ..components.component import Component
@@ -15,18 +17,22 @@ from ..exceptions import (
     SapComError,
     SapGuiStatusError
 )
+from pyqi import require
+from resin.gui.com import runtime
 from ..utils.types import (require_non_empty_string, require_positive_number)
+from ..utils.find_support import (FindMixin)
 
 if TYPE_CHECKING:
-    from ..components.container import Container
     from .connection import Connection
 
 
 ComponentT = TypeVar("ComponentT", bound=Component)
 
 
-class Session:
+class Session(FindMixin):
     """
+    *`@extends`* `FindMixin(FindContext)`
+    
     Wrapper around one SAP GUI session.
 
     A session is identified by a connection ID and session ID. The COM
@@ -61,11 +67,16 @@ class Session:
 
     @property
     def connection_id(self) -> str:
-        return self._context.require_session()[0]
+        return self._context.get_connection_id()
 
     @property
     def id(self) -> str:
-        return self._context.require_session()[1]
+        return self._context.get_session_id()
+
+    @property
+    def session_id(self) -> str:
+        """ superfluous, but used to satisfy Protocol from FindMixin """
+        return self.id
 
     @property
     def _com(self) -> DispatchLike:
@@ -143,64 +154,37 @@ class Session:
 
     # @property
     # def okcd(self) -> Component:
-    #     return self.find("wnd[0]/tbar[0]/okcd", raise_on_missing=True)
+    #     return self.find("wnd[0]/tbar[0]/okcd", _raise=True)
 
     # @property
     # def user_area(self) -> Component:
-    #     return self.find_or_raise("wnd[0]/usr")
+    #     return self.find("wnd[0]/usr", _raise=True)
 
     # @property
     # def usr(self) -> Component:
     #     return self.user_area
 
-    # @property
-    # def statusbar(self) -> Component:
-    #     return self.find_or_raise("wnd[0]/sbar")
+    @property
+    def statusbar(self) -> Component:
+        return self.find("wnd[0]/sbar", _raise=True)
 
-    # @property
-    # def status(self) -> str:
-    #     statusbar = self.statusbar
+    @property
+    def status(self) -> str:
+        statusbar = self.statusbar
 
-    #     try:
-    #         return str(statusbar._com.Text)
-    #     except Exception as e:
-    #         raise SapComError(
-    #             f"Unable to read the status bar for session {self.id!r}"
-    #         ) from e
-
-    def find(
-        self,
-        component_id: str,
-        /,
-        *,
-        raise_on_missing: bool = True,
-    ) -> Component | None:
-        """
-        Find and dynamically wrap a component in this session.
-        """
-        require_non_empty_string(component_id, 'component_id')
-        dispatch = self._gateway.find_component(
-            self.connection_id,
-            self.id,
-            component_id,
-            raise_on_missing=raise_on_missing,
-        )
-
-        if dispatch is None:
-            return None
-
-        return wrap_dispatch(
-            dispatch,
-            gateway=self._gateway,
-            context=self._context,
-        )
+        try:
+            return str(statusbar._com.Text)
+        except Exception as e:
+            raise SapComError(
+                f"Unable to read the status bar for session {self.id!r}"
+            ) from e
 
     def exists(
         self,
         component_id: str,
         /,
     ) -> bool:
-        self._validate_component_id(component_id)
+        require.non_empty_string(component_id)
 
         return self._gateway.component_exists(
             self.connection_id,
@@ -214,10 +198,7 @@ class Session:
         timeout: float = 60.0,
         poll_interval: float = 0.05,
     ) -> Session:
-        self._validate_timing(
-            timeout=timeout,
-            poll_interval=poll_interval,
-        )
+        timeout, poll_interval = validate_polling(timeout, poll_interval)
 
         deadline = time.monotonic() + timeout
 
@@ -232,48 +213,8 @@ class Session:
                     f"session={self.id!r}"
                 )
 
-            self._pump_messages()
+            runtime.pump_waiting_messages()
             time.sleep(min(poll_interval, max(0.0, deadline - time.monotonic())))
-
-    # def wait_for_component( # move out of class
-    #     self,
-    #     component_id: str,
-    #     /,
-    #     *,
-    #     timeout: float = 5.0,
-    #     poll_interval: float = 0.1,
-    # ) -> Component:
-    #     self._validate_component_id(component_id)
-    #     self._validate_timing(
-    #         timeout=timeout,
-    #         poll_interval=poll_interval,
-    #     )
-
-    #     deadline = time.monotonic() + timeout
-    #     last_error: Exception | None = None
-
-    #     while True:
-    #         try:
-    #             component = self.find(component_id, raise_on_missing=False)
-
-    #             if component is not None:
-    #                 return component
-    #         except SapComError as e:
-    #             last_error = e
-
-    #         if time.monotonic() >= deadline:
-    #             message = (
-    #                 f"SAP GUI component {component_id!r} did not appear "
-    #                 f"within {timeout} seconds in session {self.id!r}"
-    #             )
-
-    #             if last_error is not None:
-    #                 raise TimeoutError(message) from last_error
-
-    #             raise TimeoutError(message)
-
-    #         self._pump_messages()
-    #         time.sleep(min(poll_interval, max(0.0, deadline - time.monotonic())))
 
     def create_session(
         self,
@@ -297,7 +238,7 @@ class Session:
         command: str,
         /,
     ) -> Session:
-        self._validate_non_empty_string(
+        require.non_empty_string(
             command,
             name="command",
         )
@@ -319,7 +260,7 @@ class Session:
         transaction_code: str,
         /,
     ) -> Session:
-        self._validate_non_empty_string(
+        require.non_empty_string(
             transaction_code,
             name="transaction_code",
         )
@@ -399,83 +340,46 @@ class Session:
 
         return str(result)
 
-    # def raise_on_error(self) -> None:
-    #     """
-    #     Raise when the current status bar reports an SAP error message.
-    #     """
-    #     statusbar = self.statusbar
-    #     dispatch = statusbar._com
+    def raise_on_error(self) -> None:
+        """
+        Raise when the current status bar reports an SAP error message.
+        """
+        statusbar = self.statusbar
+        dispatch = statusbar._com
 
-    #     try:
-    #         message_type = str(dispatch.MessageType)
-    #         message_id = str(dispatch.MessageId)
-    #         message_number = str(dispatch.MessageNumber)
-    #         text = str(dispatch.Text)
-    #     except Exception as e:
-    #         raise SapComError(
-    #             f"Unable to inspect the status bar for session {self.id!r}"
-    #         ) from e
+        try:
+            message_type = str(dispatch.MessageType)
+            message_id = str(dispatch.MessageId)
+            message_number = str(dispatch.MessageNumber)
+            text = str(dispatch.Text)
+        except Exception as e:
+            raise SapComError(
+                f"Unable to inspect the status bar for session {self.id!r}"
+            ) from e
 
-    #     if message_type == "E":
-    #         raise SapGuiStatusError(
-    #             text=text,
-    #             message_id=message_id,
-    #             message_number=message_number,
-    #             session_id=self.id,
-    #         )
+        if message_type == "E":
+            raise SapGuiStatusError(
+                text=text,
+                message_id=message_id,
+                message_number=message_number,
+                session_id=self.id,
+            )
 
     def close(self) -> None:
         self.connection.close_session(self)
 
-    def _read(self, property_name: str) -> Any:
+    def _read(self, property: str, /) -> Any:
+        """ `getattr(self._com, prop)`"""
         session = self._com
-
         try:
-            return getattr(session, property_name)
+            return getattr(session, property)
         except Exception as e:
             raise SapComError(
-                f"Unable to read session property {property_name!r} "
+                f"Unable to read session property {property!r} "
                 f"from {self.id!r}"
             ) from e
 
-    @staticmethod
-    def _validate_component_id(component_id: str) -> None:
-        if not isinstance(component_id, str) or not component_id.strip():
-            raise ValueError(
-                "component_id must be a non-empty string"
-            )
 
-    @staticmethod
-    def _validate_non_empty_string(
-        value: str,
-        *,
-        name: str,
-    ) -> None:
-        if not isinstance(value, str) or not value.strip():
-            raise ValueError(
-                f"{name} must be a non-empty string"
-            )
-
-    @staticmethod
-    def _validate_timing(
-        *,
-        timeout: float,
-        poll_interval: float,
-    ) -> None:
-        if timeout <= 0:
-            raise ValueError("timeout must be greater than zero")
-
-        if poll_interval <= 0:
-            raise ValueError(
-                "poll_interval must be greater than zero"
-            )
-
-    @staticmethod
-    def _pump_messages() -> None:
-        try:
-            pythoncom.PumpWaitingMessages()
-        except Exception:
-            pass
 
     def __repr__(self) -> str:
         return (
@@ -498,3 +402,41 @@ class SessionInfo:
     client: str
     screen_number: int
     session_number: int
+    
+    
+
+def wait_for_component( # move to different file
+    session: Session,
+    component_id: str,
+    /,
+    *,
+    timeout: float = 5.0,
+    poll_interval: float = 0.1,
+) -> Component:
+    require.non_empty_string(component_id)
+    timeout, poll_interval = runtime.validate_polling(
+        timeout=timeout,
+        poll_interval=poll_interval,
+    )
+
+    deadline = time.monotonic() + timeout
+    last_error: Exception | None = None
+
+    while True:
+        try:
+            component = session.find(component_id, _raise=False)
+            if component is not None:
+                return component
+        except SapComError as e:
+            last_error = e
+        if time.monotonic() >= deadline:
+            message = (
+                f"SAP GUI component {component_id!r} did not appear "
+                f"within {timeout} seconds in session {session.id!r}"
+            )
+            if last_error is not None:
+                raise TimeoutError(message) from last_error
+            raise TimeoutError(message)
+
+        runtime.pump_waiting_messages()
+        time.sleep(min(poll_interval, max(0.0, deadline - time.monotonic())))

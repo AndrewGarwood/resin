@@ -3,7 +3,7 @@
 """
 from __future__ import annotations
 
-from typing import Any, Optional, TypeVar
+from typing import Any, TypeVar
 
 from ..com.gateway import ComGateway
 from ..com.types import DispatchLike
@@ -15,11 +15,14 @@ from .component import Component
 
 
 ComponentT = TypeVar("ComponentT", bound=Component)
-
-_registry: dict[str, type[Component]] = {}
+_REGISTRY: dict[str, type[Component]] = {}
 
 
 def generate_sap_type(component: type[ComponentT], /):
+    """ 
+    - assumes `component.__name__` is same as `SapScriptingApi` 
+    counterpart without the "Gui" prefix  
+    """
     return f"Gui{component.__name__}"
 
 def register_component():
@@ -34,21 +37,21 @@ def register_component():
 
     def decorator(wrapper_type: type[ComponentT],) -> type[ComponentT]:
         sap_type = f"Gui{wrapper_type.__name__}"
-        existing = _registry.get(sap_type)
+        existing = _REGISTRY.get(sap_type)
         if existing is not None and existing is not wrapper_type:
             raise RuntimeError(
                 f"SAP component type {sap_type!r} is already registered "
                 f"to {existing.__module__}.{existing.__qualname__}"
             )
 
-        _registry[sap_type] = wrapper_type
+        _REGISTRY[sap_type] = wrapper_type
         return wrapper_type
 
     return decorator
 
 
 def wrapper_type_for(sap_type: str, /,) -> type[Component]:
-    return _registry.get(sap_type, Component)
+    return _REGISTRY.get(sap_type, Component)
 
 
 def wrap_dispatch(
@@ -65,7 +68,7 @@ def wrap_dispatch(
             "Cannot wrap a COM object without usable Type and Id properties"
         ) from e
 
-    wrapper_type = _registry.get(sap_type, Component)
+    wrapper_type = _REGISTRY.get(sap_type, Component)
     component_context = context.with_component(component_id)
 
     return wrapper_type(
@@ -78,4 +81,4 @@ def registered_components() -> dict[str, type[Component]]:
     """
     Returns copy of registry
     """
-    return dict(_registry) # Return a copy so callers cannot mutate the live registry.
+    return dict(_REGISTRY) # Return a copy so callers cannot mutate the live registry.

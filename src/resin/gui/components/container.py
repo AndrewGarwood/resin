@@ -13,13 +13,13 @@ from ..exceptions import (
 )
 from .component import Component
 from .registry import wrap_dispatch, generate_sap_type
-from .._supports_find import FindMixin
+from ..utils.find_support import FindMixin
 
 LogMsg = lute.LogMsg
 ComponentT = TypeVar("ComponentT", bound=Component)
 ChildT = TypeVar("ChildT", bound=Component)
 
-class Container(Component, Generic[ChildT]):
+class Container(Component, FindMixin, Generic[ChildT]):
     """
     Base wrapper for session-bound components supporting FindById.
 
@@ -91,155 +91,6 @@ class Container(Component, Generic[ChildT]):
         """
         yield from self.children
 
-
-    @overload
-    def find(
-        self,
-        component_id: str,
-        /,
-        *,
-        component_cls: None = None,
-        _raise: Literal[False] = False,
-    ) -> Component | None: ...
-
-    @overload
-    def find(
-        self,
-        component_id: str,
-        /,
-        *,
-        component_cls: None = None,
-        _raise: Literal[True],
-    ) -> Component: ...
-
-    @overload
-    def find(
-        self,
-        component_id: str,
-        /,
-        *,
-        component_cls: type[ComponentT],
-        _raise: Literal[True]=True,
-    ) -> ComponentT:
-        ...
-
-    @overload
-    def find(
-        self,
-        component_id: str,
-        /,
-        *,
-        component_cls: type[ComponentT],
-        _raise: Literal[False] = False,
-    ) -> ComponentT | None:
-        ...
-
-    @overload
-    def find(
-        self,
-        component_id: str,
-        /,
-        *,
-        component_cls: None = None,
-        _raise: bool,
-    ) -> Component | None: ...
-
-    @overload
-    def find(
-        self,
-        component_id: str,
-        /,
-        *,
-        component_cls: type[ComponentT],
-        _raise: bool,
-    ) -> ComponentT | None: ...
-
-    def find(
-        self,
-        component_id: str,
-        /,
-        *,
-        component_cls: type[ComponentT] | None = None,
-        _raise: bool = False,
-    ) -> Component | ComponentT | None:
-        if not isinstance(component_id, str) or not component_id.strip():
-            raise ValueError(
-                LogMsg(
-                    "Invalid SAP GUI component ID",
-                    expected="non-empty str",
-                    received=lute.annotate(component_id),
-                )
-            )
-
-        if component_cls is not None and (
-            not isinstance(component_cls, type)
-            or not issubclass(component_cls, Component)
-        ):
-            raise TypeError(
-                LogMsg(
-                    "Invalid SAP GUI component wrapper class",
-                    expected="Component subclass",
-                    received=lute.annotate(component_cls),
-                )
-            )
-
-        try:
-            obj = self.gateway.find_component(
-                self.connection_id,
-                self.session_id,
-                component_id,
-                raise_on_missing=_raise,
-            )
-
-            if obj is None:
-                return None
-
-            if component_cls is None:
-                return wrap_dispatch(
-                    obj,
-                    gateway=self.gateway,
-                    context=self.context,
-                )
-
-            try:
-                actual_id = str(obj.Id)
-            except Exception as e:
-                raise SapComError(
-                    LogMsg.err(
-                        e,
-                        "Resolved SAP GUI component has no usable ID",
-                        requested_component_id=component_id,
-                        dispatch=lute.annotate(obj),
-                    )
-                ) from e
-
-            return component_cls(
-                gateway=self.gateway,
-                context=self.context.with_component(actual_id),
-            )
-
-        except SapGuiError:
-            raise
-        except Exception as e:
-            raise SapComError(
-                LogMsg.err(
-                    e,
-                    "Unable to find SAP GUI component",
-                    component_id=component_id,
-                    component_cls=(
-                        None
-                        if component_cls is None
-                        else (
-                            f"{component_cls.__module__}."
-                            f"{component_cls.__qualname__}"
-                        )
-                    ),
-                    raise_on_missing=_raise,
-                    container_id=self.id,
-                    connection_id=self.connection_id,
-                    session_id=self.session_id,
-                )
-            ) from e
 
 
     def exists(

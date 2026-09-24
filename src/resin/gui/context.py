@@ -47,10 +47,10 @@ class SapContext:
                 "component_id cannot be provided without session_id"
             )
 
-    def with_application(self, application_id: str) -> SapContext:
+    def with_application(self, application_id: str, /) -> SapContext:
         return replace(self, application_id=application_id)
 
-    def with_connection(self, connection_id: str) -> SapContext:
+    def with_connection(self, connection_id: str, /) -> SapContext:
         return replace(
             self,
             connection_id=connection_id,
@@ -58,19 +58,18 @@ class SapContext:
             component_id=None,
         )
 
-    def with_session(self, session_id: str) -> SapContext:
+    def with_session(self, session_id: str, /) -> SapContext:
         if self.connection_id is None:
             raise SapInvalidContextError(
                 "Cannot add a session ID without a connection ID"
             )
-
         return replace(
             self,
             session_id=session_id,
             component_id=None,
         )
 
-    def with_component(self, component_id: str) -> SapContext:
+    def with_component(self, component_id: str, /) -> SapContext:
         if self.connection_id is None or self.session_id is None:
             raise SapInvalidContextError(
                 "Cannot add a component ID without connection and session IDs"
@@ -79,28 +78,41 @@ class SapContext:
         return replace(self, component_id=component_id)
 
     def require_connection(self) -> str:
-        if self.connection_id is None:
+        if (not self.connection_id):
             raise SapInvalidContextError(
                 "This operation requires a connection ID"
             )
         return self.connection_id
+    
+    def get_connection_id(self) -> str:
+        return self.require_connection()
 
     def require_session(self) -> tuple[str, str]:
+        """ 
+        - *`@returns`* `(connection_id, session_id)`
+        - *`@throws`* `SapInvalidContextError` if not `self.session_id`
+        """
         connection_id = self.require_connection()
-
-        if self.session_id is None:
+        if (not self.session_id):
             raise SapInvalidContextError(
                 "This operation requires a session ID"
             )
-
         return connection_id, self.session_id
+    
+    def get_session_id(self) -> str:
+        return self.require_session()[1]
 
     def require_component(self) -> tuple[str, str, str]:
+        """ 
+        - *`@returns`* `(connection_id, session_id, self.component_id)`
+        - *`@throws`* `SapInvalidContextError` if not `self.component_id`
+        """
         connection_id, session_id = self.require_session()
-
-        if self.component_id is None:
+        if (not self.component_id):
             raise SapInvalidContextError(
                 "This operation requires a component ID"
             )
-
-        return connection_id, session_id, self.component_id
+        return (connection_id, session_id, self.component_id)
+    
+    def get_component_id(self) -> str:
+        return self.require_component()[2]
