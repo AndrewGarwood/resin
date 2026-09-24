@@ -1,15 +1,17 @@
 """
 *`@file`* `resin/gui/com/gateway`
-- GetObject("SAPGUI"), connection/session resolution, and COM validation.
 """
-
 from __future__ import annotations
 from pathlib import Path
+from logging import Logger
+from typing import ( Generator, cast)
+import pythoncom
 import win32com.client as win32
+from pyqi import export
+from pyqi.validation import require
 from pyqi.fs import launch_executable
-from lute import (LogMsg, annotate, get_logger)
 from ..config import (AppManager, SAPGUI_OBJECT_ID)
-
+from ..utils.mixin import ReadPropertyMixin
 from ..exceptions import (
     SapComError, 
     SapComponentNotFoundError, 
@@ -19,28 +21,14 @@ from ..exceptions import (
 )
 from .types import (DispatchLike)
 
-import logging
-from collections.abc import Iterator
-from contextlib import contextmanager
-from typing import Any, Generator, cast
-
-import pythoncom
-
-from ..exceptions import (
-    SapComponentNotFoundError,
-    SapComError,
-    SapConnectionNotFoundError,
-    SapGuiNotAvailableError,
-    SapSessionNotFoundError,
-)
-from .types import DispatchLike
-
-
+from lute import (LogMsg, annotate, get_logger)
 mlog = get_logger(Path(__file__).stem)
 
 
-class ComGateway:
+class ComGateway(ReadPropertyMixin):
     """
+    *`@extends`* `ReadPropertyMixin` (adds `staticmethod get_property()`)
+
     Boundary between the wrapper model and SAP GUI's COM API.
 
     The gateway deliberately resolves connections, sessions, and components
@@ -62,7 +50,7 @@ class ComGateway:
         self,
         *,
         prog_id: str = SAPGUI_PROG_ID,
-        logger: logging.Logger | None = None,
+        logger: Logger | None = None,
     ) -> None:
         if not isinstance(prog_id, str) or not prog_id.strip():
             raise ValueError("prog_id must be a non-empty string")
@@ -133,8 +121,7 @@ class ComGateway:
         Example runtime ID:
             /app/con[0]
         """
-        self._validate_id(connection_id, name="connection_id")
-
+        require.non_empty_string(connection_id, name="connection_id")
         application = self.get_application()
 
         try:
@@ -159,19 +146,22 @@ class ComGateway:
                 candidate,
                 source=f"GuiApplication.Children({index})",
             )
-
-            candidate_id = self._get_string_property(
-                candidate,
-                "Id",
-                source=f"GuiApplication.Children({index})",
+            candidate_id = self.get_property(
+                candidate, 
+                "Id", 
+                str, 
+                source=f"GuiApplication.Children({index})", 
+                _raise=False
             )
 
             if candidate_id == connection_id:
-                candidate_type = self._get_optional_string_property(
-                    candidate,
-                    "Type",
+                candidate_type = self.get_property(
+                    candidate, 
+                    "Type", 
+                    str, 
+                    source=f"GuiApplication.Children({index})", 
+                    _raise=False
                 )
-
                 if (
                     candidate_type is not None
                     and candidate_type != "GuiConnection"
@@ -181,9 +171,7 @@ class ComGateway:
                         f"GuiConnection but reported type "
                         f"{candidate_type!r}"
                     )
-
                 return candidate
-
         raise SapConnectionNotFoundError(
             f"SAP GUI connection not found: {connection_id!r}"
         )
@@ -200,8 +188,8 @@ class ComGateway:
             connection_id = /app/con[0]
             session_id = /app/con[0]/ses[0]
         """
-        self._validate_id(connection_id, name="connection_id")
-        self._validate_id(session_id, name="session_id")
+        require.non_empty_string(connection_id, name="connection_id")
+        require.non_empty_string(session_id, name="session_id")
 
         connection = self.get_connection(connection_id)
 
@@ -222,24 +210,19 @@ class ComGateway:
                     f"Unable to read session child at index {index} for "
                     f"connection {connection_id!r}"
                 ) from e
-
             candidate = self._require_dispatch(
                 candidate,
                 source=f"GuiConnection.Children({index})",
             )
-
-            candidate_id = self._get_string_property(
-                candidate,
-                "Id",
-                source=f"GuiConnection.Children({index})",
+            candidate_id = self.get_property(
+                candidate, 
+                "Id", 
+                str, 
+                source=f"GuiConnection.Children({index})", 
+                _raise=False
             )
-
             if candidate_id == session_id:
-                candidate_type = self._get_optional_string_property(
-                    candidate,
-                    "Type",
-                )
-
+                candidate_type = self.get_property(candidate, "Type", str, _raise=False)
                 if (
                     candidate_type is not None
                     and candidate_type != "GuiSession"
@@ -274,9 +257,9 @@ class ComGateway:
         Depending on the SAP GUI API version, ``FindById`` may either return
         ``None`` or raise a COM exception when the object is missing.
         """
-        self._validate_id(connection_id, name="connection_id")
-        self._validate_id(session_id, name="session_id")
-        self._validate_id(component_id, name="component_id")
+        require.non_empty_string(connection_id, name="connection_id")
+        require.non_empty_string(session_id, name="session_id")
+        require.non_empty_string(component_id, name="component_id")
 
         session = self.get_session(connection_id, session_id)
 
@@ -341,33 +324,8 @@ class ComGateway:
                 session_id,
                 component_id,
                 raise_on_missing=False,
-            )
-            is not None
+            ) is not None
         )
-
-    @staticmethod
-    def get_property(
-        dispatch: DispatchLike,
-        prop: str,
-        /,
-    ) -> Any:
-        """
-        Read a dynamic COM property with contextual error handling.
-        """
-        if not prop:
-            raise ValueError("property_name must not be empty")
-
-        try:
-            return getattr(dispatch, prop)
-        except Exception as e:
-            raise SapComError(
-                f"Unable to read COM property {prop!r}"
-            ) from e
-
-    @staticmethod
-    def _validate_id(value: str, *, name: str) -> None:
-        if not isinstance(value, str) or not value.strip():
-            raise ValueError(f"{name} must be a non-empty string")
 
     @staticmethod
     def _component_missing_message(
@@ -427,39 +385,6 @@ class ComGateway:
 
         return dispatch
 
-    @staticmethod
-    def _get_string_property(
-        dispatch: DispatchLike,
-        property_name: str,
-        *,
-        source: str,
-    ) -> str:
-        try:
-            value = getattr(dispatch, property_name)
-        except Exception as e:
-            raise SapComError(
-                f"Unable to read {source}.{property_name}"
-            ) from e
-
-        if value is None:
-            raise SapComError(
-                f"{source}.{property_name} returned None"
-            )
-
-        return str(value)
-
-    @staticmethod
-    def _get_optional_string_property(
-        dispatch: DispatchLike,
-        property_name: str,
-    ) -> str | None:
-        try:
-            value = getattr(dispatch, property_name)
-        except Exception:
-            return None
-
-        return None if value is None else str(value)
-
 
 def get_application_com():
     try:
@@ -479,3 +404,5 @@ def get_application_com():
         return app
     except Exception as e:
         raise RuntimeError(LogMsg.err(e)) from e
+
+__all__ = export(ComGateway, get_application_com)

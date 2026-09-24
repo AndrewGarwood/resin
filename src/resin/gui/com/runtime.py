@@ -1,18 +1,20 @@
 from __future__ import annotations
 
 from contextlib import contextmanager
-from typing import Generator
-
-import lute
+from typing import (Any, Callable, Generator, Literal, TypeVar, overload)
+import time
 import pythoncom
-
-from ..utils.types import (require_positive_number)
+from pyqi import export
+from pyqi.validation import require
 from ..exceptions import SapComError
 
 
+import lute
 LogMsg = lute.LogMsg
 mlog = lute.get_logger(__file__)
 
+
+T = TypeVar("T")
 
 @contextmanager
 def com_apartment() -> Generator[None]:
@@ -60,16 +62,90 @@ def validate_polling(
     poll_interval: float,
 ) -> tuple[float, float]:
     checked_timeout = float(
-        require_positive_number(
+        require.positive_number(
             timeout,
             name="timeout",
         )
     )
     checked_poll_interval = float(
-        require_positive_number(
+        require.positive_number(
             poll_interval,
             name="poll_interval",
         )
     )
 
     return (checked_timeout, checked_poll_interval)
+
+@overload
+def poll_until(
+    operation: Callable[[], T | None],
+    *,
+    timeout: float,
+    poll_interval: float,
+    description: str,
+    retry_on: tuple[type[Exception], ...] = (Exception,),
+    strict: Literal[True]=True
+) -> T: ...
+
+@overload
+def poll_until(
+    operation: Callable[[], T | None],
+    *,
+    timeout: float,
+    poll_interval: float,
+    description: str,
+    retry_on: tuple[type[Exception], ...] = (Exception,),
+    strict: Literal[False]=False
+) -> T | None: ...
+
+def poll_until(
+    operation: Callable[[], T | None],
+    *,
+    timeout: float,
+    poll_interval: float,
+    description: str,
+    retry_on: tuple[type[Exception], ...] = (Exception,),
+    strict: bool=True
+) -> Any:
+    timeout, poll_interval = validate_polling(
+        timeout=timeout,
+        poll_interval=poll_interval,
+    )
+
+    deadline = time.monotonic() + timeout
+    last_error: Exception | None = None
+
+    while True:
+        try:
+            result = operation()
+            if result is not None:
+                return result
+        except retry_on as e:
+            last_error = e
+        remaining = deadline - time.monotonic()
+
+        if remaining <= 0:
+            error = TimeoutError(
+                LogMsg(
+                    f"Timed out waiting for {description}",
+                    timeout=timeout,
+                    poll_interval=poll_interval,
+                )
+            )
+            if (not strict):
+                mlog.warning(LogMsg.err(error))
+                return None
+            if (last_error is not None):
+                raise error from last_error
+            raise error
+
+        try_pump_waiting_messages()
+        time.sleep(min(poll_interval, remaining))
+
+__all__ = export(
+    poll_until, 
+    validate_polling, 
+    try_pump_waiting_messages, 
+    pump_waiting_messages, 
+    com_apartment
+)

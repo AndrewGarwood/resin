@@ -14,10 +14,8 @@ mlog = lute.get_logger(Path(__file__).parent.parent)
 def debug_component(
     obj: Any, 
     /, 
-    print_to_console: bool=False
-) -> dict[str, object]:
-    props = {}
-    for name in [
+    print_to_console: bool=False,
+    attrs: list[str]=[
         "Id",
         "Name",
         "Type",
@@ -26,7 +24,10 @@ def debug_component(
         "Enabled",
         "Visible",
         "ContainerType",
-    ]:
+    ]
+) -> dict[str, object]:
+    props = {}
+    for name in attrs:
         try:
             props[name] = getattr(obj, name)
         except Exception as e:

@@ -24,11 +24,3 @@ class ChildrenLike(Protocol):
     Count: int
     def __call__(self, index: int) -> DispatchLike:
         ...
-
-
-# class ContainerLike(Protocol):
-#     Id: str
-#     Type: str
-#     Parent: Any
-#     Children: Any
-#     FindById: Any

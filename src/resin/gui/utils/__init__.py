@@ -5,4 +5,4 @@
 from .concurrency import *
 from .types import *
 from .debug import *
-from .waits import *
+from .wait import *

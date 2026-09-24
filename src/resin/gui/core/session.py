@@ -1,9 +1,8 @@
 from __future__ import annotations
 
 import time
-from typing import TYPE_CHECKING, Any, TypeVar, overload
-
-import pythoncom
+from typing import TYPE_CHECKING, TypeVar
+from dataclasses import dataclass
 from win32com.client import CDispatch
 
 from resin.gui.com.runtime import validate_polling
@@ -13,14 +12,12 @@ from ..components.component import Component
 from ..components.registry import wrap_dispatch
 from ..context import SapContext
 from ..exceptions import (
-    SapComponentNotFoundError,
     SapComError,
     SapGuiStatusError
 )
 from pyqi import require
 from resin.gui.com import runtime
-from ..utils.types import (require_non_empty_string, require_positive_number)
-from ..utils.find_support import (FindMixin)
+from ..utils.mixin import (FindMixin)
 
 if TYPE_CHECKING:
     from .connection import Connection
@@ -103,23 +100,25 @@ class Session(FindMixin):
 
     @property
     def busy(self) -> bool:
-        return bool(self._read("Busy"))
+        return self._gateway.get_property(self._com, "Busy", bool, _raise=True)
 
     @property
     def is_active(self) -> bool:
-        return bool(self._read("IsActive"))
+        return self._gateway.get_property(self._com, "IsActive", bool, _raise=True)
 
     @property
     def passport_transaction_id(self) -> str:
-        value = self._read("PassportTransactionId")
-        return "" if value is None else str(value)
+        return self._gateway.get_property(
+            self._com, 
+            "PassportTransactionId", 
+            str, 
+            default=""
+        )
 
     @property
     def active_window(self) -> Component:
-        session = self._com
-
         try:
-            dispatch = session.ActiveWindow
+            dispatch = self._com.ActiveWindow
         except Exception as e:
             raise SapComError(
                 f"Unable to obtain the active window for session "
@@ -141,7 +140,7 @@ class Session(FindMixin):
         so it should not be forced through Component.FindById resolution.
         A dedicated immutable SessionInfo value object can be added later.
         """
-        return self._read("Info")
+        return self.gateway.get_property(self._com, "Info", _raise=True, source="Session.info(self)")
 
     @property
     def transaction(self) -> str:
@@ -171,7 +170,6 @@ class Session(FindMixin):
     @property
     def status(self) -> str:
         statusbar = self.statusbar
-
         try:
             return str(statusbar._com.Text)
         except Exception as e:
@@ -184,37 +182,45 @@ class Session(FindMixin):
         component_id: str,
         /,
     ) -> bool:
-        require.non_empty_string(component_id)
-
         return self._gateway.component_exists(
             self.connection_id,
             self.id,
-            component_id,
+            require.non_empty_string(component_id),
         )
+    """
+def wait_for_session_idle(
+    session: Session,
+    /,
+    *,
+    timeout: float = 60.0,
+    poll_interval: float = 0.05,
+) -> Session:
+    timeout, poll_interval = validate_polling(timeout, poll_interval)
 
-    def wait_for_idle(
-        self,
-        *,
-        timeout: float = 60.0,
-        poll_interval: float = 0.05,
-    ) -> Session:
-        timeout, poll_interval = validate_polling(timeout, poll_interval)
-
-        deadline = time.monotonic() + timeout
-
-        while True:
-            if not self.busy:
-                return self
-
-            if time.monotonic() >= deadline:
-                raise TimeoutError(
-                    f"SAP GUI session remained busy for more than "
-                    f"{timeout} seconds: connection={self.connection_id!r}, "
-                    f"session={self.id!r}"
-                )
-
-            runtime.pump_waiting_messages()
-            time.sleep(min(poll_interval, max(0.0, deadline - time.monotonic())))
+    deadline = time.monotonic() + timeout
+    while True:
+        if (not session.busy):
+            return session
+        if (time.monotonic() >= deadline):
+            raise TimeoutError(
+                f"SAP GUI session remained busy for more than "
+                f"{timeout} seconds: connection={session.connection_id!r}, "
+                f"session={session.id!r}"
+            )
+        runtime.pump_waiting_messages()
+        time.sleep(min(poll_interval, max(0.0, deadline - time.monotonic())))
+    """
+    # def wait_for_idle(
+    #     self,
+    #     *,
+    #     timeout: float = 60.0,
+    #     poll_interval: float = 0.05,
+    # ) -> Session:
+    #     return wait_for_session_idle(
+    #         self, 
+    #         timeout=timeout, 
+    #         poll_interval=poll_interval
+    #     )
 
     def create_session(
         self,
@@ -238,15 +244,12 @@ class Session(FindMixin):
         command: str,
         /,
     ) -> Session:
-        require.non_empty_string(
-            command,
-            name="command",
-        )
-
-        session = self._com
-
+        
         try:
-            session.SendCommand(command)
+            self._com.SendCommand(require.non_empty_string(
+                command,
+                name="command",
+            ))
         except Exception as e:
             raise SapComError(
                 f"Unable to send SAP command {command!r} to session "
@@ -257,36 +260,29 @@ class Session(FindMixin):
 
     def start_transaction(
         self,
-        transaction_code: str,
+        code: str,
         /,
     ) -> Session:
-        require.non_empty_string(
-            transaction_code,
-            name="transaction_code",
-        )
-
-        session = self._com
-
         try:
-            session.StartTransaction(transaction_code)
+            self._com.StartTransaction(require.non_empty_string(
+                code,
+                name="transaction_code",
+            ))
         except Exception as e:
             raise SapComError(
                 f"Unable to start SAP transaction "
-                f"{transaction_code!r} in session {self.id!r}"
+                f"{code!r} in session {self.id!r}"
             ) from e
 
         return self
 
     def end_transaction(self) -> Session:
-        session = self._com
-
         try:
-            session.EndTransaction()
+            self._com.EndTransaction()
         except Exception as e:
             raise SapComError(
                 f"Unable to end the transaction in session {self.id!r}"
             ) from e
-
         return self
 
     def get_object_tree(
@@ -298,9 +294,7 @@ class Session(FindMixin):
     ) -> str:
         if not isinstance(component_id, str):
             raise TypeError("component_id must be a string")
-
         session = self._com
-
         try:
             if properties is None:
                 result = session.GetObjectTree(component_id)
@@ -312,9 +306,8 @@ class Session(FindMixin):
         except Exception as e:
             raise SapComError(
                 f"Unable to obtain the SAP GUI object tree for "
-                f"session {self.id!r}"
+                f"session {ComGateway.get_property(session, 'Id')!r}"
             ) from e
-
         return str(result)
 
     def get_vkey_description(
@@ -322,22 +315,13 @@ class Session(FindMixin):
         key: int,
         /,
     ) -> str:
-        if not isinstance(key, int):
-            raise TypeError("key must be an integer")
-
-        if key < 0:
-            raise ValueError("key cannot be negative")
-
-        session = self._com
-
         try:
-            result = session.GetVKeyDescription(key)
+            result = self._com.GetVKeyDescription(require.positive_integer(key, "vkey"))
         except Exception as e:
             raise SapComError(
                 f"Unable to obtain the description for SAP virtual key "
                 f"{key}"
             ) from e
-
         return str(result)
 
     def raise_on_error(self) -> None:
@@ -368,27 +352,35 @@ class Session(FindMixin):
     def close(self) -> None:
         self.connection.close_session(self)
 
-    def _read(self, property: str, /) -> Any:
-        """ `getattr(self._com, prop)`"""
-        session = self._com
-        try:
-            return getattr(session, property)
-        except Exception as e:
-            raise SapComError(
-                f"Unable to read session property {property!r} "
-                f"from {self.id!r}"
-            ) from e
-
-
-
     def __repr__(self) -> str:
         return (
             f"<Session connection_id={self.connection_id!r} "
             f"id={self.id!r}>"
         )
 
-from dataclasses import dataclass
+    @staticmethod
+    def wait_for_idle(
+        session: Session,
+        /,
+        *,
+        timeout: float = 60.0,
+        poll_interval: float = 0.05,
+    ) -> Session:
+        timeout, poll_interval = validate_polling(timeout, poll_interval)
 
+        deadline = time.monotonic() + timeout
+        while True:
+            if (not session.busy):
+                return session
+            if (time.monotonic() >= deadline):
+                raise TimeoutError(
+                    f"SAP GUI session remained busy for more than "
+                    f"{timeout} seconds: connection={session.connection_id!r}, "
+                    f"session={session.id!r}"
+                )
+            runtime.pump_waiting_messages()
+            time.sleep(min(poll_interval, max(0.0, deadline - time.monotonic())))
+        
 
 @dataclass(frozen=True, slots=True)
 class SessionInfo:
@@ -403,40 +395,3 @@ class SessionInfo:
     screen_number: int
     session_number: int
     
-    
-
-def wait_for_component( # move to different file
-    session: Session,
-    component_id: str,
-    /,
-    *,
-    timeout: float = 5.0,
-    poll_interval: float = 0.1,
-) -> Component:
-    require.non_empty_string(component_id)
-    timeout, poll_interval = runtime.validate_polling(
-        timeout=timeout,
-        poll_interval=poll_interval,
-    )
-
-    deadline = time.monotonic() + timeout
-    last_error: Exception | None = None
-
-    while True:
-        try:
-            component = session.find(component_id, _raise=False)
-            if component is not None:
-                return component
-        except SapComError as e:
-            last_error = e
-        if time.monotonic() >= deadline:
-            message = (
-                f"SAP GUI component {component_id!r} did not appear "
-                f"within {timeout} seconds in session {session.id!r}"
-            )
-            if last_error is not None:
-                raise TimeoutError(message) from last_error
-            raise TimeoutError(message)
-
-        runtime.pump_waiting_messages()
-        time.sleep(min(poll_interval, max(0.0, deadline - time.monotonic())))

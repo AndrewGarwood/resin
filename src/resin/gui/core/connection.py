@@ -3,10 +3,11 @@ from __future__ import annotations
 import time
 from typing import TYPE_CHECKING, Optional, Self
 
-import pythoncom
+from pyqi import require
 
 from ..com.gateway import ComGateway
 from ..com.types import DispatchLike
+from ..com import runtime
 from ..config import AppManager
 from ..context import SapContext
 from ..exceptions import (
@@ -78,7 +79,7 @@ class Connection:
 
     @property
     def id(self) -> str:
-        return self._context.require_connection()
+        return self._context.get_connection_id()
 
     @property
     def _com(self) -> DispatchLike:
@@ -101,9 +102,7 @@ class Connection:
         Return a snapshot of currently open sessions.
         """
         from .session import Session
-
         connection = self._com
-
         try:
             children = connection.Children
             count = int(children.Count)
@@ -113,7 +112,6 @@ class Connection:
             ) from e
 
         result: list[Session] = []
-
         for index in range(count):
             try:
                 dispatch = children(index)
@@ -130,26 +128,23 @@ class Connection:
                     f"Connection child {index} reported SAP type "
                     f"{sap_type!r}; expected 'GuiSession'"
                 )
-
             result.append(
                 Session(
                     gateway=self._gateway,
                     context=self._context.with_session(session_id),
                 )
             )
-
         return tuple(result)
 
     @property
     def session_count(self) -> int:
         connection = self._com
-
         try:
             return int(connection.Children.Count)
         except Exception as e:
             raise SapComError(
                 f"Unable to obtain the session count for "
-                f"connection {self.id!r}"
+                f"connection {connection.Id!r}"
             ) from e
 
     @property
@@ -162,23 +157,23 @@ class Connection:
 
     @property
     def description(self) -> str:
-        return self._read_string("Description")
+        return self._gateway.get_property(self._com, "Description", str, _raise=True)
 
     @property
     def connection_string(self) -> str:
-        return self._read_string("ConnectionString")
+        return self._gateway.get_property(self._com, "ConnectionString", str, _raise=True)
 
     @property
     def disabled_by_server(self) -> bool:
-        return bool(self._read("DisabledByServer"))
+        return self._gateway.get_property(self._com, "DisabledByServer", bool, _raise=True)
 
     @property
     def runtime_name(self) -> str:
-        return self._read_string("Name")
+        return self._gateway.get_property(self._com, "Name", str, _raise=True)
 
-    @property
-    def runtime_id(self) -> str:
-        return self.id
+    # @property
+    # def runtime_id(self) -> str:
+    #     return self.id
 
     def assert_session_capacity(
         self,
@@ -224,15 +219,10 @@ class Connection:
         session_id: str,
         /,
     ) -> Session | None:
-        self._validate_non_empty_string(
-            session_id,
-            name="session_id",
-        )
-
+        require.non_empty_string(session_id, "session_id")
         for session in self.sessions:
             if session.id == session_id:
                 return session
-
         return None
 
     def require_session(
@@ -241,13 +231,11 @@ class Connection:
         /,
     ) -> Session:
         session = self.find_session(session_id)
-
         if session is None:
             raise SapSessionNotFoundError(
                 f"No SAP GUI session {session_id!r} was found under "
                 f"connection {self.id!r}"
             )
-
         return session
 
     def wait_for_session_capacity(
@@ -265,28 +253,19 @@ class Connection:
 
         if actual_limit < 1:
             raise ValueError("limit must be at least 1")
-
-        self._validate_timing(
-            timeout=timeout,
-            poll_interval=poll_interval,
-        )
-
+        timeout, poll_interval = runtime.validate_polling(timeout, poll_interval)
         deadline = time.monotonic() + timeout
-
         while True:
             current = self.session_count
-
             if current < actual_limit:
                 return self
-
             if time.monotonic() >= deadline:
                 raise TimeoutError(
                     "No SAP GUI session capacity became available: "
                     f"connection={self.id!r}, current={current}, "
                     f"limit={actual_limit}, timeout={timeout}"
                 )
-
-            self._pump_messages()
+            runtime.pump_waiting_messages()
             time.sleep(min(poll_interval, max(0.0, deadline - time.monotonic())))
 
     def create_session(
@@ -308,7 +287,7 @@ class Connection:
         newly created session is always the final collection element.
         """
         self.assert_session_capacity(limit=limit)
-        self._validate_timing(
+        timeout, poll_interval = runtime.validate_polling(
             timeout=timeout,
             poll_interval=poll_interval,
         )
@@ -361,7 +340,7 @@ class Connection:
                     f"{self.id!r}"
                 )
 
-            self._pump_messages()
+            runtime.pump_waiting_messages()
             time.sleep(min(poll_interval, max(0.0, deadline - time.monotonic())))
 
     def close_session(
@@ -396,9 +375,7 @@ class Connection:
                 "session must be a Session, non-empty string, or "
                 "non-negative integer"
             )
-
         connection = self._com
-
         try:
             connection.CloseSession(session_id)
         except Exception as e:
@@ -412,69 +389,11 @@ class Connection:
         Close the connection and every session belonging to it.
         """
         connection = self._com
-
         try:
             connection.CloseConnection()
         except Exception as e:
             raise SapComError(
                 f"Unable to close SAP GUI connection {self.id!r}"
             ) from e
-
-    def _read(self, property_name: str) -> object:
-        connection = self._com
-
-        try:
-            return getattr(connection, property_name)
-        except Exception as e:
-            raise SapComError(
-                f"Unable to read connection property "
-                f"{property_name!r} from {self.id!r}"
-            ) from e
-
-    def _read_string(self, property_name: str) -> str:
-        value = self._read(property_name)
-
-        if value is None:
-            raise SapComError(
-                f"Connection {self.id!r} returned None for "
-                f"{property_name!r}"
-            )
-
-        return str(value)
-
-    @staticmethod
-    def _validate_non_empty_string(
-        value: str,
-        *,
-        name: str,
-    ) -> None:
-        if not isinstance(value, str) or not value.strip():
-            raise ValueError(
-                f"{name} must be a non-empty string"
-            )
-
-    @staticmethod
-    def _validate_timing(
-        *,
-        timeout: float,
-        poll_interval: float,
-    ) -> None:
-        if timeout <= 0:
-            raise ValueError("timeout must be greater than zero")
-
-        if poll_interval <= 0:
-            raise ValueError(
-                "poll_interval must be greater than zero"
-            )
-
-    @staticmethod
-    def _pump_messages() -> None:
-        try:
-            pythoncom.PumpWaitingMessages()
-        except Exception:
-            # Message pumping is opportunistic during polling. The actual COM
-            # operation will still expose relevant failures.
-            pass
-
     def __repr__(self) -> str:
         return f"<Connection id={self.id!r}>"

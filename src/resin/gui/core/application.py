@@ -4,7 +4,7 @@ import logging
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Optional, Self
 import lute
-
+from pyqi.validation import require
 from win32com.client import CDispatch
 from ..com.gateway import ComGateway
 from ..com.types import DispatchLike
@@ -15,8 +15,6 @@ from ..exceptions import (
     SapConnectionNotFoundError,
     SapGuiError,
 )
-from ..utils.types import (require_non_empty_string)
-
 from .connection import Connection
 
 
@@ -45,12 +43,8 @@ class Application:
         self._gateway = gateway
 
         if context is None:
-            application = gateway.get_application()
-            application_id = self._read_dispatch_id(
-                application
-            )
-            context = SapContext(application_id=application_id)
-
+            app_id = self._read_dispatch_id(gateway.get_application())
+            context = SapContext(application_id=app_id)
         self._context = context
 
     @classmethod
@@ -65,15 +59,11 @@ class Application:
         The calling thread must have an initialized COM apartment. Worker
         threads should use ``ComGateway.com_apartment()``.
         """
-        actual_gateway = gateway or ComGateway()
-        application = actual_gateway.get_application()
-
-        application_id = cls._read_dispatch_id(
-            application)
-
+        gateway = gateway or ComGateway()
+        app = gateway.get_application()
         return cls(
-            gateway=actual_gateway,
-            context=SapContext(application_id=application_id),
+            gateway=gateway,
+            context=SapContext(application_id=cls._read_dispatch_id(app)),
         )
 
     @property
@@ -95,8 +85,7 @@ class Application:
         if self._context.application_id is not None:
             return self._context.application_id
 
-        return self._read_dispatch_id(
-            self._com)
+        return self._read_dispatch_id(self._com)
 
     @property
     def _com(self) -> DispatchLike:
@@ -107,25 +96,19 @@ class Application:
         """
         Return a snapshot of currently open SAP GUI connections.
         """
-
-
-        application = self._com
-
+        app = self._com
         try:
-            children = application.Children
+            children = app.Children
             count = int(children.Count)
         except Exception as e:
-            raise SapComError(
-                "Unable to enumerate SAP GUI connections"
-            ) from e
+            raise SapComError("Unable to enumerate SAP GUI connections") from e
 
         result: list[Connection] = []
-
         for index in range(count):
             try:
-                dispatch = children(index)
-                connection_id = str(dispatch.Id)
-                sap_type = str(dispatch.Type)
+                conn_com = children(index)
+                connection_id = str(conn_com.Id)
+                sap_type = str(conn_com.Type)
             except Exception as e:
                 raise SapComError(
                     f"Unable to inspect SAP GUI application child "
@@ -176,12 +159,9 @@ class Application:
             if limit is None
             else limit
         )
-
         if actual_limit < 1:
             raise ValueError("limit must be at least 1")
-
         current = self.total_session_count
-
         if current >= actual_limit:
             raise SapGuiError(
                 "Cannot create another SAP GUI session because the "
@@ -198,7 +178,6 @@ class Application:
         Return an open connection by snapshot index.
         """
         connections = self.connections
-
         try:
             return connections[index]
         except IndexError as e:
@@ -243,8 +222,7 @@ class Application:
             )
 
         for connection in self.connections:
-            matches = True
-
+            matches: bool = True
             for name, expected in provided.items():
                 try:
                     if name == "connection_id":
@@ -254,14 +232,11 @@ class Application:
                 except (AttributeError, SapComError):
                     matches = False
                     break
-
                 if actual != expected:
                     matches = False
                     break
-
             if matches:
                 return connection
-
         return None
 
     def require_connection(
@@ -305,16 +280,14 @@ class Application:
         description: str,
         /,
         *,
-        synchronous: bool = True,
+        sync: bool = True,
         raise_on_error: bool = True,
         enforce_session_capacity: bool = True,
     ) -> Connection:
         """
         Open a connection using its SAP Logon description.
         """
-
-
-        require_non_empty_string(
+        require.non_empty_string(
             description,
             name="description",
         )
@@ -327,7 +300,7 @@ class Application:
         try:
             dispatch = application.OpenConnection(
                 description,
-                synchronous,
+                sync,
                 raise_on_error,
             )
         except Exception as e:
@@ -337,7 +310,6 @@ class Application:
             ) from e
 
         connection_id = self._validate_connection_dispatch(dispatch)
-
         return Connection(
             gateway=self._gateway,
             context=self._context.with_connection(connection_id),
@@ -358,7 +330,7 @@ class Application:
         Example:
             /R/PN1/G/PUBLIC
         """
-        require_non_empty_string(
+        require.non_empty_string(
             connection_string,
             name="connection_string",
         )
@@ -399,12 +371,9 @@ class Application:
         return self
 
     @staticmethod
-    def _validate_connection_dispatch(
-        dispatch: CDispatch,/,
-    ) -> str:
+    def _validate_connection_dispatch(dispatch: CDispatch,/,) -> str:
         if dispatch is None:
             raise SapComError(f"returned None")
-
         try:
             connection_id = str(dispatch.Id)
             sap_type = str(dispatch.Type)
@@ -418,27 +387,21 @@ class Application:
                 f"returned SAP type {sap_type!r}; "
                 "expected 'GuiConnection'"
             )
-
         if not connection_id:
             raise SapComError(
                 f"returned an empty connection ID"
             )
-
         return connection_id
 
     @staticmethod
     def _read_dispatch_id(dispatch: Any,/) -> str:
-        try:
-            value = str(dispatch.Id)
-        except Exception as e:
-            raise SapComError(
-                f"Unable to read the runtime ID"
-            ) from e
-        if not value:
-            raise SapComError(
-                f"returned an empty runtime ID"
-            )
-        return value
+        return ComGateway.get_property(
+            dispatch, 
+            "Id", 
+            str, 
+            source="Application._read_dispatch_id", 
+            _raise=True
+        )
 
     def __repr__(self) -> str:
         return f"<Application id={self.id!r}>"

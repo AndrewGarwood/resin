@@ -36,17 +36,19 @@ def register_component():
     """
 
     def decorator(wrapper_type: type[ComponentT],) -> type[ComponentT]:
-        sap_type = f"Gui{wrapper_type.__name__}"
+        _wrapper_name = wrapper_type.__name__
+        sap_type = (
+            f"Gui{_wrapper_name}" if not _wrapper_name.startswith("Gui") 
+            else _wrapper_name
+        )
         existing = _REGISTRY.get(sap_type)
-        if existing is not None and existing is not wrapper_type:
+        if (existing is not None and existing is not wrapper_type):
             raise RuntimeError(
                 f"SAP component type {sap_type!r} is already registered "
                 f"to {existing.__module__}.{existing.__qualname__}"
             )
-
         _REGISTRY[sap_type] = wrapper_type
         return wrapper_type
-
     return decorator
 
 

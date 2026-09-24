@@ -1,19 +1,17 @@
 from __future__ import annotations
 
 from collections.abc import Iterator
-from typing import (Any, Literal, Optional, Type, TypeVar, overload, Generic)
+from typing import (TypeVar, Generic)
 import lute
-from pyqi import Array
+from pyqi import export
 from ..com.gateway import ComGateway
 from ..context import SapContext
 from ..exceptions import (
-    SapComponentNotFoundError,
     SapComError,
-    SapGuiError,
 )
 from .component import Component
-from .registry import wrap_dispatch, generate_sap_type
-from ..utils.find_support import FindMixin
+from .registry import (wrap_dispatch, register_component)
+from ..utils.mixin import FindMixin
 
 LogMsg = lute.LogMsg
 ComponentT = TypeVar("ComponentT", bound=Component)
@@ -91,8 +89,6 @@ class Container(Component, FindMixin, Generic[ChildT]):
         """
         yield from self.children
 
-
-
     def exists(
         self,
         component_id: str | None = None,
@@ -117,3 +113,18 @@ class Container(Component, FindMixin, Generic[ChildT]):
             self.session_id,
             component_id,
         )
+
+class VContainer(Container):
+    """
+    [SAP GuiVContainer](https://help.sap.com/docs/sap_gui_for_windows/b47d018c3b9b45e897faf66a6c0885a8/76a8c4e46d1d4f8caa5f70b6dcfc5f34.html)
+    """ 
+    ...
+
+@register_component()
+class UserArea(Container):
+    """
+    [GuiUserArea](https://help.sap.com/docs/sap_gui_for_windows/b47d018c3b9b45e897faf66a6c0885a8/7892da6a9b83433583707d476207badf.html)
+    """
+    ...
+
+__all__ = export(Container, VContainer, UserArea)
