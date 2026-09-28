@@ -4,7 +4,7 @@
 from datetime import date
 from pathlib import Path
 from dataclasses import dataclass
-from typing import (TypedDict, Optional, Literal)
+from typing import (Any, Self, TypedDict, Optional, Literal)
 from pyqi import (Json, export, dt, fs)
 from lute import LogMsg
 
@@ -13,6 +13,7 @@ class FileOptionsDict(TypedDict, total=False):
     filename: str
     outpath: str
     ref_date: str | Literal['none', 'today']
+    how_apply_ref: str | Literal['auto']
 
 @dataclass
 class FileOptions(Json.Serial[FileOptionsDict]):
@@ -27,13 +28,13 @@ class FileOptions(Json.Serial[FileOptionsDict]):
     """
     _path: Path
     _ref_date: Optional[date] = None
-    
     def __init__(
         self,
         outpath: Optional[fs.StrPath]=None,    
         outdir: Optional[fs.StrPath]=None,    
         filename: Optional[str]=None,
-        ref_date: dt.DateValue | Literal['none', 'today']='today'
+        ref_date: dt.DateValue | Literal['none', 'today'] | None = None,
+        how_apply_ref: fs.RenameOperation | Literal['auto'] = fs.RenameOperation.REPLACE
     ):
         if (outpath and (outdir or filename)):
             raise ValueError(LogMsg(
@@ -45,12 +46,12 @@ class FileOptions(Json.Serial[FileOptionsDict]):
                 filename=str(filename)
             ))
         ref: date | None = (
-            None if ref_date == 'none' 
+            None if (ref_date is None or ref_date == 'none') 
             else dt.today() if ref_date == 'today' 
             else dt.resolve_date(ref_date)
         )
         path: Path | None = None
-        if (outpath): 
+        if (outpath):
             path = fs.to_path(outpath)
         elif (outdir):
             path = fs.to_path(outdir).joinpath(filename or 'export.xlsx')
@@ -66,23 +67,58 @@ class FileOptions(Json.Serial[FileOptionsDict]):
             path = path.with_name(fs.dated_filename(
                 path.stem, 
                 ext=path.suffix, 
-                ref=ref
+                ref=ref,
+                how=how_apply_ref
             ))
         self._path = path
     
     @property
     def outpath(self) -> Path:
         return self._path
+    @outpath.setter
+    def outpath(self, other: fs.StrPath, /):
+        self._path = fs.to_path(other)
+    
     @property
     def outdir(self) -> Path:
         return self._path.parent
+    @outdir.setter
+    def outdir(self, other: fs.StrPath, /):
+        self._path = fs.to_path(other).joinpath(self._path.name)
+    
     @property
     def filename(self) -> str:
         return self._path.name
-    @property
-    def ref_date(self): 
-        return self._ref_date
+    @filename.setter
+    def filename(self, other: str, /):
+        self._path = self._path.with_name(other)
     
+    @property
+    def ref_date(self) -> date | None: 
+        return self._ref_date
+    @ref_date.setter
+    def ref_date(self, other: date | None, /):
+        self._ref_date = other
+
+    @classmethod
+    def from_dict(cls, data: FileOptionsDict | dict[str, Any]) -> Self:
+        try:
+            _how = data.get('how_apply_ref')
+            if (_how and _how != 'auto'): 
+                _how = fs.RenameOperation(_how)
+            return cls(
+                outpath=data.get("outpath"),
+                outdir=data.get("outdir"),
+                filename=data.get("filename"),
+                ref_date=data.get("ref_date"),
+                how_apply_ref=(_how or 'auto')
+            )
+        except Exception as e:
+            raise RuntimeError(LogMsg.err(
+                e, 
+                received=Json.serialize(data)
+            ))
+
     def to_dict(self) -> Json.JsonDict[FileOptionsDict]:
         return {
             "ref_date": (

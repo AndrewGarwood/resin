@@ -1,22 +1,57 @@
 """
 *`@file`* `gui/models/_export/options`
 """
-from datetime import date
-from pathlib import Path
-from dataclasses import dataclass, replace
-from typing import (TypedDict, Required, NotRequired, Any, Optional, Mapping, TypeAlias, Literal)
-from pyqi import (String, Json, export, Result, dt, fs)
+from dataclasses import dataclass
+from typing import (Self, TypedDict, Any)
+from pyqi import (Json, export)
 from lute import LogMsg
 
 from ._file import (FileOptions, FileOptionsDict)
 from .layout import (LayoutSelector, LayoutSelectorDict)
+from .dialog import (SaveDialog, SaveDialogDict)
+from ._method import (ExportMethod, InvokeMethodOptions, InvokeMethodOptionsDict)
 
-class ExportMethod(String.BaseEnum):
-    NONE = "none"
-    """ → do not export the Transaction data"""
-    CONTEXT_MENU = "context_menu"
-    TOOLBAR_BUTTON = "toolbar_button"
-    KEYBOARD_SHORTCUT = "keyboard_shortcut"
-    """ e.g. `SendVKey(16)` """
-    TOOLBAR_CONTEXT = "toolbar_context"
-    """ ***not implemented/supported*** """
+
+class ExportOptionsDict(TypedDict, total=False):
+    method: str
+    overwrite: bool
+    layout: LayoutSelectorDict
+    invoke: InvokeMethodOptionsDict
+    file: FileOptionsDict
+    save: SaveDialogDict
+
+@dataclass
+class ExportOptions(Json.Serial[ExportOptionsDict]):
+    method: ExportMethod
+    overwrite: bool
+    layout: LayoutSelector | None
+    invoke: InvokeMethodOptions
+    file: FileOptions
+    save: SaveDialog
+    @classmethod
+    def from_dict(cls, data: ExportOptionsDict | dict[str, Any], /) -> Self:
+        try:
+            _method = data.get("method", ExportMethod.NONE.value)
+            _layout = data.get("layout", None)
+            _invoke = data.get("invoke", None)
+            _file = data.get("file", None)
+            _save = data.get("save", None)
+            return cls(
+                method=ExportMethod(_method),
+                overwrite=data.get("overwrite", False),
+                layout=LayoutSelector.from_dict(_layout) if _layout else None,
+                invoke=(
+                    InvokeMethodOptions.from_dict(_invoke) if _invoke 
+                    else InvokeMethodOptions()
+                ),
+                file=FileOptions.from_dict(_file) if _file else FileOptions(),
+                save=SaveDialog.from_dict(_save) if _save else SaveDialog()
+            )
+        except Exception as e:
+            raise RuntimeError(LogMsg.err(
+                e, 
+                received=Json.serialize(data)
+            ))
+
+
+__all__ = export(ExportOptions, ExportOptionsDict)

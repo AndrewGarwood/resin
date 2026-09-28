@@ -25,12 +25,12 @@ class LayoutSelectorDict(TypedDict):
 class LayoutSelector(Json.Serial[LayoutSelectorDict]):
     """
     select layout after transaction executes.
+    - (e.g. if the transaction uses an un-wanted default layout)
     """
     name: str
     grid_id: str
     _btn_id: Optional[str]=None
     _vkey: Optional[int]=None
-
     def __init__(
         self, 
         name: str, 
@@ -48,15 +48,6 @@ class LayoutSelector(Json.Serial[LayoutSelectorDict]):
             ))
         self._btn_id = button_id
         self._vkey = vkey
-
-    # @property
-    # def grid_id(self) -> str:
-    #     if (not self._grid_id):
-    #         raise RuntimeError(LogMsg(
-    #             "self._grid_id is undefined",
-    #             self_name=self.name
-    #         ))
-    #     return self._grid_id
 
     @property
     def btn_id(self) -> str:
@@ -88,7 +79,7 @@ class LayoutSelector(Json.Serial[LayoutSelectorDict]):
                 vkey=data.get("vkey")
             )
         except Exception as e:
-            raise Exception(LogMsg.err(error=e)) from e
+            raise Exception(LogMsg.err(error=e, received=Json.serialize(data))) from e
 
 
 __all__ = export(LayoutSelector, LayoutSelectorDict)
