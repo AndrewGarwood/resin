@@ -1,7 +1,7 @@
 """
 *`@file`* `gui/models/_export/options`
 """
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import (Self, TypedDict, Any)
 from pyqi import (Json, export)
 from lute import LogMsg
@@ -22,12 +22,13 @@ class ExportOptionsDict(TypedDict, total=False):
 
 @dataclass
 class ExportOptions(Json.Serial[ExportOptionsDict]):
-    method: ExportMethod
-    overwrite: bool
-    layout: LayoutSelector | None
-    invoke: InvokeMethodOptions
-    file: FileOptions
-    save: SaveDialog
+    method: ExportMethod = ExportMethod.NONE
+    layout: LayoutSelector | None = None
+    invoke: InvokeMethodOptions = field(default_factory=InvokeMethodOptions)
+    file: FileOptions = field(default_factory=FileOptions)
+    save: SaveDialog = field(default_factory=SaveDialog)
+    overwrite: bool = False
+
     @classmethod
     def from_dict(cls, data: ExportOptionsDict | dict[str, Any], /) -> Self:
         try:
