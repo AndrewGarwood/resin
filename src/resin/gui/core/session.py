@@ -1,3 +1,6 @@
+"""
+*`@file`* `gui/core/session`
+"""
 from __future__ import annotations
 
 import time
@@ -28,8 +31,6 @@ ComponentT = TypeVar("ComponentT", bound=Component)
 
 class Session(FindMixin):
     """
-    *`@extends`* `FindMixin(FindContext)`
-    
     Wrapper around one SAP GUI session.
 
     A session is identified by a connection ID and session ID. The COM
@@ -43,14 +44,12 @@ class Session(FindMixin):
         context: SapContext,
     ) -> None:
         context.require_session()
-
         if context.component_id is not None:
             context = SapContext(
                 application_id=context.application_id,
                 connection_id=context.connection_id,
                 session_id=context.session_id,
             )
-
         self._gateway = gateway
         self._context = context
 
@@ -187,40 +186,6 @@ class Session(FindMixin):
             self.id,
             require.non_empty_string(component_id),
         )
-    """
-def wait_for_session_idle(
-    session: Session,
-    /,
-    *,
-    timeout: float = 60.0,
-    poll_interval: float = 0.05,
-) -> Session:
-    timeout, poll_interval = validate_polling(timeout, poll_interval)
-
-    deadline = time.monotonic() + timeout
-    while True:
-        if (not session.busy):
-            return session
-        if (time.monotonic() >= deadline):
-            raise TimeoutError(
-                f"SAP GUI session remained busy for more than "
-                f"{timeout} seconds: connection={session.connection_id!r}, "
-                f"session={session.id!r}"
-            )
-        runtime.pump_waiting_messages()
-        time.sleep(min(poll_interval, max(0.0, deadline - time.monotonic())))
-    """
-    # def wait_for_idle(
-    #     self,
-    #     *,
-    #     timeout: float = 60.0,
-    #     poll_interval: float = 0.05,
-    # ) -> Session:
-    #     return wait_for_session_idle(
-    #         self, 
-    #         timeout=timeout, 
-    #         poll_interval=poll_interval
-    #     )
 
     def create_session(
         self,
@@ -244,7 +209,6 @@ def wait_for_session_idle(
         command: str,
         /,
     ) -> Session:
-        
         try:
             self._com.SendCommand(require.non_empty_string(
                 command,

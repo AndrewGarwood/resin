@@ -6,9 +6,8 @@ import time
 import threading
 import pythoncom
 from functools import wraps
-from typing import Any, Callable, TypeVar, ParamSpec, Concatenate, Protocol, runtime_checkable
+from typing import Any, Callable, TypeVar, ParamSpec, Concatenate
 from lute import LogMsg, annotate
-from .types import (HasSession)
 
 P = ParamSpec("P")
 R = TypeVar("R")

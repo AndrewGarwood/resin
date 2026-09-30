@@ -1,3 +1,7 @@
+"""
+*`@file`* `gui/components/container`
+"""
+
 from __future__ import annotations
 
 from collections.abc import Iterator
@@ -11,7 +15,7 @@ from ..exceptions import (
 )
 from .component import Component
 from .registry import (wrap_dispatch, register_component)
-from ..utils.mixin import FindMixin
+from ..utils.mixin import (FindMixin)
 
 LogMsg = lute.LogMsg
 ComponentT = TypeVar("ComponentT", bound=Component)

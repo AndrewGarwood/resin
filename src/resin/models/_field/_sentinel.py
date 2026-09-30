@@ -5,6 +5,15 @@ from pyqi.models import BaseStrEnum
 from pyqi._utils import export
 from typing import (Any, TypedDict, NotRequired)
 
+
+SENTINEL_KWARG = "sentinel"
+ARGS_KWARG = "args"
+RESERVED_KWARGS = set([SENTINEL_KWARG, ARGS_KWARG])
+
+def is_reserved_kwarg(value: Any, /) -> bool:
+    return isinstance(value, str) and value in RESERVED_KWARGS
+
+
 class SentinelKey(BaseStrEnum):
     FIRST_DAY_OF_MONTH = "FIRST_DAY_OF_MONTH"
     LAST_DAY_OF_MONTH = "LAST_DAY_OF_MONTH"
@@ -27,4 +36,4 @@ class SentinelValue(TypedDict):
     args: NotRequired[list[Any]]
 
 
-__all__ = export(SentinelKey, SentinelValue)
+__all__ = export(SentinelKey, SentinelValue, is_reserved_kwarg, "SENTINEL_KWARG", "ARGS_KWARG")

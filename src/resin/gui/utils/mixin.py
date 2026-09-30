@@ -1,7 +1,7 @@
 """
 *`@file`* `gui/utils/find_support`
 """
-from typing import (Any, Callable, Literal, Optional, TypeVar, overload, Protocol, ClassVar)
+from typing import (Any, Callable, Literal, Optional, TypeVar, overload, Protocol, ClassVar, Generic)
 
 from resin.gui.com.types import DispatchLike
 from resin.gui.components.registry import wrap_dispatch
@@ -13,8 +13,7 @@ from lute import LogMsg, annotate
 
 T = TypeVar('T')
 ComponentT = TypeVar("ComponentT", bound=Component)
-
-class FindContext(Protocol):
+class SupportsFind(Protocol):
     """
     *`@protocol`* 
     ```
@@ -33,7 +32,7 @@ class FindContext(Protocol):
     @property
     def connection_id(self) -> str: ...
 
-class FindMixin(FindContext):
+class FindMixin():
     """
     *`@extends`* `FindContext(Protocol)` → classes that inherit `FindMixin` *must* also implement:
     ```
@@ -44,68 +43,59 @@ class FindMixin(FindContext):
     ```
     """
     
-    # @overload
-    # def find(
-    #     self,
-    #     component_id: str,
-    #     /,
-    #     *,
-    #     component_cls: None = None,
-    #     _raise: Literal[False]=False,
-    # ) -> Component | None: ...
-
-    # @overload
-    # def find(
-    #     self,
-    #     component_id: str,
-    #     /,
-    #     *,
-    #     component_cls: type[ComponentT],
-    #     _raise: Literal[False]=False,
-    # ) -> ComponentT | None: ...
-
     @overload
     def find(
-        self,
+        self: SupportsFind,
         component_id: str,
         /,
         *,
         component_cls: None = None,
-        _raise: Literal[True]=True,
-    ) -> Component: ...
-
-    @overload
-    def find(
-        self,
-        component_id: str,
-        /,
-        *,
-        component_cls: type[ComponentT],
-        _raise: Literal[True]=True,
-    ) -> ComponentT: ...
-    
-    @overload
-    def find(
-        self,
-        component_id: str,
-        /,
-        *,
-        component_cls: None = None,
-        _raise: bool,
+        _raise: Literal[False] = False,
     ) -> Component | None: ...
 
     @overload
     def find(
-        self,
+        self: SupportsFind,
+        component_id: str,
+        /,
+        *,
+        component_cls: None = None,
+        _raise: Literal[True],
+    ) -> Component: ...
+
+
+    @overload
+    def find(
+        self: SupportsFind,
         component_id: str,
         /,
         *,
         component_cls: type[ComponentT],
-        _raise: bool,
+        _raise: Literal[False] = False,
     ) -> ComponentT | None: ...
 
+    @overload
     def find(
-        self,
+        self: SupportsFind,
+        component_id: str,
+        /,
+        *,
+        component_cls: type[ComponentT],
+        _raise: Literal[True],
+    ) -> ComponentT: ...
+    
+    @overload
+    def find(
+        self: SupportsFind,
+        component_id: str,
+        /,
+        *,
+        component_cls: type[ComponentT] | None = None,
+        _raise: bool,
+    ) -> Component | ComponentT | None: ...
+
+    def find(
+        self: SupportsFind,
         component_id: str,
         /,
         *,
@@ -113,6 +103,14 @@ class FindMixin(FindContext):
         _raise: bool = False,
     ) -> Component | ComponentT | None:
         try:
+            if (component_cls is not None 
+                and not issubclass(component_cls, Component)
+            ):
+                raise TypeError(LogMsg.bad_arg(
+                    component_cls, "component_cls", 
+                    "component_cls must extend Component", 
+                    Component, "class <name>(Component)"
+                ))
             obj = self.gateway.find_component(
                 self.connection_id,
                 self.session_id,
@@ -142,7 +140,6 @@ class FindMixin(FindContext):
                     _raise=_raise,
                 )
             ) from e
-
 
 # class ReadPropertyContext(Protocol):
 #     @property

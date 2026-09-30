@@ -3,20 +3,12 @@
 """
 from collections.abc import Collection
 from datetime import date
-from pyqi import (Array)
-from typing import (
-    Final, Any, Optional
-)
-from pyqi import (Registry, dt)
+from typing import (Final, Any, Optional)
+from pyqi import (Registry, dt, Array)
 from pyqi._dt import (FormatString, compute_date)
 from ._sentinel import (SentinelKey)
 from re import search as re_search
 from lute import LogMsg
-
-
-_SENTINEL_KWARG = "sentinel"
-_ARGS_KWARG = "args"
-_RESERVED_KWARGS = set([_SENTINEL_KWARG, _ARGS_KWARG])
 
 Sentinels: Final[
     Registry[SentinelKey, str]
@@ -147,4 +139,4 @@ def custom_range(
     right = f"{ub_left}{sep}{ub_right}"
     return f"{left} - {right}"
 
-
+__all__ = ["Sentinels"]

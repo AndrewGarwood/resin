@@ -1,18 +1,9 @@
 """
-*`@file`* `gui/models/transaction/_transaction`
+*`@file`* `gui/models/transaction/enums`
 """
 from __future__ import annotations
-from pathlib import Path
-from datetime import datetime
-from threading import Condition, RLock
 from enum import auto
 from pyqi import (String, export)
-from pyqi.fs import (StrPath)
-from pyqi.models import (Flow, StageTransition)
-
-import lute
-LogMsg = lute.LogMsg
-mlog = lute.get_logger(Path(__file__).parent.stem)
 
 class TransactionStage(String.BaseEnum):
     """
@@ -44,3 +35,11 @@ class TransactionStage(String.BaseEnum):
 
     COMPLETED = auto()
     FAILED = auto()
+
+
+
+class ExecutionType(String.BaseEnum):
+    STANDARD = auto()
+    BACKGROUND = auto() # Not Yet implemented
+
+__all__ = export(TransactionStage, ExecutionType)
