@@ -8,7 +8,7 @@ from __future__ import annotations
 from typing import (TYPE_CHECKING, Any, Self, Sequence)
 from pyqi import export
 
-from .registry import wrap_dispatch
+from .factory import wrap_dispatch
 from ..com.gateway import ComGateway
 from ..com.types import DispatchLike
 from ..context import SapContext

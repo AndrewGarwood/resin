@@ -4,8 +4,7 @@
 """
 
 from __future__ import annotations
-from typing import (Literal, overload, Any)
-from ..core.session import (Session)
+from typing import (Literal, overload, Any, TYPE_CHECKING)
 from ..com import runtime
 from ..components.component import Component
 from pyqi import Function
@@ -13,15 +12,18 @@ from pyqi import Function
 import lute
 LogMsg = lute.LogMsg
 
+if TYPE_CHECKING:
+    from ..core.session import (Session)
+
 # wait_for_session_idle = Session.wait_for_idle # muh color...
-def wait_for_session_idle(
-    session: Session, 
-    /,
-    *, 
-    timeout: float=60.0, 
-    poll_interval: float=0.05
-) -> Session:
-    return Session.wait_for_idle(session, timeout=timeout, poll_interval=poll_interval)
+# def wait_for_session_idle(
+#     session: Session, 
+#     /,
+#     *, 
+#     timeout: float=60.0, 
+#     poll_interval: float=0.05
+# ) -> Session:
+#     return Session.wait_for_idle(session, timeout=timeout, poll_interval=poll_interval)
 
 
 @overload

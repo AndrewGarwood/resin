@@ -6,7 +6,7 @@ import time
 import threading
 import pythoncom
 from functools import wraps
-from typing import Any, Callable, TypeVar, ParamSpec, Concatenate
+from typing import (Any, Callable, TypeVar, ParamSpec, Concatenate, Generic)
 from lute import LogMsg, annotate
 
 P = ParamSpec("P")
@@ -93,3 +93,4 @@ def busy_safe(
                     )) from e
         return wrapper
     return decorator_busy_safe
+

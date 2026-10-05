@@ -45,7 +45,13 @@ class SaveDialog(Json.Serial[SaveDialogDict]):
                 confirm_button_id=data.get("confirm_button_id")
             )
         except Exception as e:
-            raise RuntimeError(LogMsg.err(e, received=Json.serialize(data)))
+            raise RuntimeError(LogMsg.err(e, received=Json.serialize(data))) from e
 
+    # def to_dict(self) -> SaveDialogDict | dict[str, Any]:
+    #     return {
+    #         "dirpath_field_id": self.dirpath_field_id,
+    #         "filename_field_id": self.filename_field_id,
+    #         "confirm_button_id": self.confirm_button_id
+    #     }
 
 __all__ = export(SaveDialogDict, SaveDialog)

@@ -10,16 +10,16 @@ from ._sentinel import (SentinelKey)
 from re import search as re_search
 from lute import LogMsg
 
-Sentinels: Final[
+SENTINELS: Final[
     Registry[SentinelKey, str]
 ] = Registry(SentinelKey, normalize_key=SentinelKey.resolve)
 
-@Sentinels.register(SentinelKey.CURRENT_DAY)
+@SENTINELS.register(SentinelKey.CURRENT_DAY)
 def current_day(fmt: str=FormatString.MDY_SLASH.value) -> str: 
     return compute_date().strftime(fmt)
 
 
-@Sentinels.register(SentinelKey.FIRST_DAY_OF_MONTH)
+@SENTINELS.register(SentinelKey.FIRST_DAY_OF_MONTH)
 def first_day_of_month_text(
     anchor: str | date | None = None, 
     fmt: str | FormatString = FormatString.MDY_SLASH.value
@@ -28,7 +28,7 @@ def first_day_of_month_text(
     return compute_date(anchor=anchor, day="first").strftime(fmt)
 
 
-@Sentinels.register(SentinelKey.LAST_DAY_OF_MONTH)
+@SENTINELS.register(SentinelKey.LAST_DAY_OF_MONTH)
 def last_day_of_month_text(
     anchor: str | date | None = None, 
     fmt: str | FormatString = FormatString.MDY_SLASH.value
@@ -37,7 +37,7 @@ def last_day_of_month_text(
     return compute_date(anchor=anchor, day="last").strftime(fmt)
 
 
-@Sentinels.register(SentinelKey.FIRST_DAY_OF_YEAR)
+@SENTINELS.register(SentinelKey.FIRST_DAY_OF_YEAR)
 def first_day_of_year_text(
     year: int | None = None,  
     fmt: str | FormatString = FormatString.MDY_SLASH.value
@@ -46,7 +46,7 @@ def first_day_of_year_text(
     return date(y, 1, 1).strftime(fmt)
 
 
-@Sentinels.register(SentinelKey.LAST_DAY_OF_YEAR)
+@SENTINELS.register(SentinelKey.LAST_DAY_OF_YEAR)
 def last_day_of_year_text(
     year: int | None = None,  
     fmt: str | FormatString = FormatString.MDY_SLASH.value
@@ -55,34 +55,34 @@ def last_day_of_year_text(
     return date(y, 12, 31).strftime(fmt)
 
 
-@Sentinels.register(SentinelKey.ROLLING_YEAR_LOWER)
+@SENTINELS.register(SentinelKey.ROLLING_YEAR_LOWER)
 def rolling_year_lower_text(
     fmt: str | FormatString = FormatString.MDY_SLASH.value
     ) -> str:
     return compute_date(year_offset=-1, day="last").strftime(fmt)
 
 
-@Sentinels.register(SentinelKey.ROLLING_YEAR_UPPER)
+@SENTINELS.register(SentinelKey.ROLLING_YEAR_UPPER)
 def rolling_year_upper_text(
     fmt: str | FormatString = FormatString.MDY_SLASH.value
 ) -> str:
     return compute_date(year_offset=0, day="last").strftime(fmt)
 
 
-@Sentinels.register(SentinelKey.ROLLING_12M_LOWER)
+@SENTINELS.register(SentinelKey.ROLLING_12M_LOWER)
 def rolling_12m_lower(
     fmt: str | FormatString = FormatString.MDY_SLASH.value
 ) -> str:
     return compute_date(year_offset=-1, day="first").strftime(fmt)
 
 
-@Sentinels.register(SentinelKey.ROLLING_12M_UPPER)
+@SENTINELS.register(SentinelKey.ROLLING_12M_UPPER)
 def rolling_12m_upper(
     fmt: str | FormatString = FormatString.MDY_SLASH.value
 ) -> str:
     return compute_date(day="last").strftime(fmt)
 
-@Sentinels.register(SentinelKey.CUSTOM_DATE)
+@SENTINELS.register(SentinelKey.CUSTOM_DATE)
 def custom_date(
     *,
     fmt: str | FormatString = FormatString.MDY_SLASH.value, 
@@ -98,15 +98,15 @@ def custom_date(
     """
     return compute_date(**kwargs).strftime(fmt)
 
-@Sentinels.register(SentinelKey.PREVIOUS_BUSINESS_DAY)
+@SENTINELS.register(SentinelKey.PREVIOUS_BUSINESS_DAY)
 def previous_business_day(
     fmt: str | FormatString = FormatString.MDY_SLASH.value,
     holidays: Optional[Collection[str]] = None
 ) -> str:
-    _holidays = Array.filter_map(list(holidays or []), dt.Date.resolve_date)
+    _holidays = Array.filter_map(list(holidays or []), dt.Date.resolve)
     return dt.Date.previous_business_day(None, holidays=_holidays).strftime(fmt)
 
-@Sentinels.register(SentinelKey.CUSTOM_RANGE)
+@SENTINELS.register(SentinelKey.CUSTOM_RANGE)
 def custom_range(
     *,
     lower: dict[str, Any],
@@ -139,4 +139,4 @@ def custom_range(
     right = f"{ub_left}{sep}{ub_right}"
     return f"{left} - {right}"
 
-__all__ = ["Sentinels"]
+__all__ = ["SENTINELS"]

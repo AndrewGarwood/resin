@@ -11,8 +11,7 @@ from win32com.client import CDispatch
 from resin.gui.com.runtime import validate_polling
 from ..com.gateway import ComGateway
 from ..com.types import DispatchLike
-from ..components.component import Component
-from ..components.registry import wrap_dispatch
+from ..components.factory import wrap_dispatch
 from ..context import SapContext
 from ..exceptions import (
     SapComError,
@@ -24,9 +23,9 @@ from ..utils.mixin import (FindMixin)
 
 if TYPE_CHECKING:
     from .connection import Connection
+    from ..com.gateway import ComGateway
 
 
-ComponentT = TypeVar("ComponentT", bound=Component)
 
 
 class Session(FindMixin):
@@ -115,7 +114,7 @@ class Session(FindMixin):
         )
 
     @property
-    def active_window(self) -> Component:
+    def active_window(self):
         try:
             dispatch = self._com.ActiveWindow
         except Exception as e:
@@ -151,19 +150,19 @@ class Session(FindMixin):
             ) from e
 
     # @property
-    # def okcd(self) -> Component:
+    # def okcd(self):
     #     return self.find("wnd[0]/tbar[0]/okcd", _raise=True)
 
     # @property
-    # def user_area(self) -> Component:
+    # def user_area(self):
     #     return self.find("wnd[0]/usr", _raise=True)
 
     # @property
-    # def usr(self) -> Component:
+    # def usr(self):
     #     return self.user_area
 
     @property
-    def statusbar(self) -> Component:
+    def statusbar(self):
         return self.find("wnd[0]/sbar", _raise=True)
 
     @property

@@ -31,4 +31,4 @@ class CompletedExport(ExportDetails):
             tel=tel
         )
 
-__all__ = export(ExportDetails, ExportResult)
+__all__ = export(ExportDetails, ExportResult, CompletedExport)

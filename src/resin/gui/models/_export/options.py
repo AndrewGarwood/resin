@@ -52,7 +52,7 @@ class ExportOptions(Json.Serial[ExportOptionsDict]):
             raise RuntimeError(LogMsg.err(
                 e, 
                 received=Json.serialize(data)
-            ))
+            )) from e
 
 
 __all__ = export(ExportOptions, ExportOptionsDict)

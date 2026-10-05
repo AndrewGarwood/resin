@@ -1,18 +1,20 @@
 """
-*`@file`* `gui/utils/find_support`
+*`@file`* `gui/utils/mixin`
 """
-from typing import (Any, Callable, Literal, Optional, TypeVar, overload, Protocol, ClassVar, Generic)
-
-from resin.gui.com.types import DispatchLike
-from resin.gui.components.registry import wrap_dispatch
+from __future__ import annotations
+from typing import (Literal, TypeVar, overload, Protocol, TYPE_CHECKING)
+from resin.gui.components.factory import wrap_dispatch
 from resin.gui.exceptions import SapComError, SapGuiError
-from ..components.component import Component
 from ..com.gateway import ComGateway
 from ..context import SapContext
-from lute import LogMsg, annotate
+from lute import LogMsg
+
+if TYPE_CHECKING:
+    from resin.gui.components.component import Component
 
 T = TypeVar('T')
-ComponentT = TypeVar("ComponentT", bound=Component)
+ComponentT = TypeVar("ComponentT", bound="Component")
+
 class SupportsFind(Protocol):
     """
     *`@protocol`* 
@@ -102,15 +104,16 @@ class FindMixin():
         component_cls: type[ComponentT] | None = None,
         _raise: bool = False,
     ) -> Component | ComponentT | None:
+        
         try:
-            if (component_cls is not None 
-                and not issubclass(component_cls, Component)
-            ):
-                raise TypeError(LogMsg.bad_arg(
-                    component_cls, "component_cls", 
-                    "component_cls must extend Component", 
-                    Component, "class <name>(Component)"
-                ))
+            if (component_cls is not None):
+                from resin.gui.components.component import Component
+                if (not issubclass(component_cls, Component)):
+                    raise TypeError(LogMsg.bad_arg(
+                        component_cls, "component_cls", 
+                        "component_cls must extend Component", 
+                        Component, "class <name>(Component)"
+                    ))
             obj = self.gateway.find_component(
                 self.connection_id,
                 self.session_id,
@@ -138,138 +141,5 @@ class FindMixin():
                     component_id=component_id,
                     component_cls=str(component_cls),
                     _raise=_raise,
-                )
-            ) from e
-
-# class ReadPropertyContext(Protocol):
-#     @property
-#     def context(self) -> SapContext: ...
-#     @property
-#     def gateway(self) -> ComGateway: ...
-
-
-class ReadPropertyMixin():
-    _MISSING: ClassVar[object] = object()
-
-    # No factory, no non-None default.
-    @overload
-    @staticmethod
-    def get_property(
-        dispatch: DispatchLike,
-        prop: str,
-        /,
-        factory: None = None,
-        *,
-        default: None = None,
-        source: str | None = None,
-        _raise: Literal[False] = False,
-    ) -> Any | None: ...
-
-    # No factory, caller provides a default.
-    @overload
-    @staticmethod
-    def get_property(
-        dispatch: DispatchLike,
-        prop: str,
-        /,
-        factory: None = None,
-        *,
-        default: T,
-        source: str | None = None,
-        _raise: bool = False,
-    ) -> T | Any: ...
-
-    # No factory, missing property raises.
-    @overload
-    @staticmethod
-    def get_property(
-        dispatch: DispatchLike,
-        prop: str,
-        /,
-        factory: None = None,
-        *,
-        default: None = None,
-        source: str | None = None,
-        _raise: Literal[True],
-    ) -> Any: ...
-
-    # Factory supplied, missing property raises.
-    @overload
-    @staticmethod
-    def get_property(
-        dispatch: DispatchLike,
-        prop: str,
-        /,
-        factory: Callable[[Any], T],
-        *,
-        default: T | None = None,
-        source: str | None = None,
-        _raise: Literal[True],
-    ) -> T: ...
-
-    # Factory supplied, missing property may return None.
-    @overload
-    @staticmethod
-    def get_property(
-        dispatch: DispatchLike,
-        prop: str,
-        /,
-        factory: Callable[[Any], T],
-        *,
-        default: None = None,
-        source: str | None = None,
-        _raise: Literal[False] = False,
-    ) -> T | None: ...
-
-    # Factory supplied, missing property returns the provided default.
-    @overload
-    @staticmethod
-    def get_property(
-        dispatch: DispatchLike,
-        prop: str,
-        /,
-        factory: Callable[[Any], T],
-        *,
-        default: T,
-        source: str | None = None,
-        _raise: bool = False,
-    ) -> T: ...
-
-    @staticmethod
-    def get_property(
-        dispatch: DispatchLike,
-        prop: str,
-        /,
-        factory: Callable[[Any], T] | None = None,
-        *,
-        default: T | None = None,
-        source: str | None = None,
-        _raise: bool = False,
-    ) -> Any:
-        """Read a dynamic COM property with contextual error handling."""
-        if not prop:
-            raise ValueError("prop must not be empty")
-        if source is None:
-            source = "ReadProperty"
-        try:
-            value = getattr(dispatch, prop, ReadPropertyMixin._MISSING)
-            if value is ReadPropertyMixin._MISSING:
-                if _raise:
-                    raise SapComError(
-                        f"Property {prop!r} was not found on the dispatch object"
-                    )
-                return default
-            if factory is None:
-                return value
-            return factory(value)
-        except SapComError:
-            raise
-        except Exception as e:
-            raise SapComError(
-                LogMsg.err(
-                    e,
-                    f"Unable to read COM property {prop!r}",
-                    dispatch=annotate(dispatch),
-                    source=source,
                 )
             ) from e

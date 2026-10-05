@@ -117,7 +117,7 @@ class FileOptions(Json.Serial[FileOptionsDict]):
             raise RuntimeError(LogMsg.err(
                 e, 
                 received=Json.serialize(data)
-            ))
+            )) from e
 
     def to_dict(self) -> Json.JsonDict[FileOptionsDict]:
         return {

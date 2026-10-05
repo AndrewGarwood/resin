@@ -2,21 +2,13 @@
 *`@file`* `resin/gui/components/registry`
 """
 from __future__ import annotations
+from typing import TYPE_CHECKING, TypeVar
 
-from typing import Any, TypeVar
+if TYPE_CHECKING:
+    from .component import Component
 
-from ..com.gateway import ComGateway
-from ..com.types import DispatchLike
-from ..context import SapContext
-from ..exceptions import SapComError
-
-from .component import Component
-
-
-
-ComponentT = TypeVar("ComponentT", bound=Component)
-_REGISTRY: dict[str, type[Component]] = {}
-
+ComponentT = TypeVar("ComponentT", bound="Component")
+COMPONENT_REGISTRY: dict[str, type["Component"]] = {}
 
 def generate_sap_type(component: type[ComponentT], /):
     """ 
@@ -34,53 +26,28 @@ def register_component():
         class Button(Component):
             ...
     """
-
     def decorator(wrapper_type: type[ComponentT],) -> type[ComponentT]:
         _wrapper_name = wrapper_type.__name__
         sap_type = (
             f"Gui{_wrapper_name}" if not _wrapper_name.startswith("Gui") 
             else _wrapper_name
         )
-        existing = _REGISTRY.get(sap_type)
+        existing = COMPONENT_REGISTRY.get(sap_type)
         if (existing is not None and existing is not wrapper_type):
             raise RuntimeError(
                 f"SAP component type {sap_type!r} is already registered "
                 f"to {existing.__module__}.{existing.__qualname__}"
             )
-        _REGISTRY[sap_type] = wrapper_type
+        COMPONENT_REGISTRY[sap_type] = wrapper_type
         return wrapper_type
     return decorator
 
 
-def wrapper_type_for(sap_type: str, /,) -> type[Component]:
-    return _REGISTRY.get(sap_type, Component)
+# def wrapper_type_for(sap_type: str, /,) -> type[Component]:
+#     return COMPONENT_REGISTRY.get(sap_type, Component)
 
-
-def wrap_dispatch(
-    dispatch: DispatchLike,
-    /,
-    gateway: ComGateway,
-    context: SapContext,
-) -> Any:
-    try:
-        sap_type = str(dispatch.Type)
-        component_id = str(dispatch.Id)
-    except Exception as e:
-        raise SapComError(
-            "Cannot wrap a COM object without usable Type and Id properties"
-        ) from e
-
-    wrapper_type = _REGISTRY.get(sap_type, Component)
-    component_context = context.with_component(component_id)
-
-    return wrapper_type(
-        gateway=gateway,
-        context=component_context,
-    )
-
-
-def registered_components() -> dict[str, type[Component]]:
+def registered_components() -> dict[str, type["Component"]]:
     """
     Returns copy of registry
     """
-    return dict(_REGISTRY) # Return a copy so callers cannot mutate the live registry.
+    return dict(COMPONENT_REGISTRY) # Return a copy so callers cannot mutate the live registry.

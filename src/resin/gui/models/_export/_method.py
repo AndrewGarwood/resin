@@ -47,8 +47,6 @@ class InvokeMethodOptions(Json.Serial[InvokeMethodOptionsDict]):
                 menu_item_id=data.get("menu_item_id")
             )
         except Exception as e:
-            raise RuntimeError(LogMsg.err(e, received=Json.serialize(data)))
-
-
+            raise RuntimeError(LogMsg.err(e, received=Json.serialize(data))) from e
 
 __all__ = export(ExportMethod, InvokeMethodOptionsDict, InvokeMethodOptions)

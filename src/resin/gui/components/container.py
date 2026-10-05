@@ -14,8 +14,9 @@ from ..exceptions import (
     SapComError,
 )
 from .component import Component
-from .registry import (wrap_dispatch, register_component)
+from .registry import (register_component)
 from ..utils.mixin import (FindMixin)
+from .factory import (wrap_dispatch)
 
 LogMsg = lute.LogMsg
 ComponentT = TypeVar("ComponentT", bound=Component)

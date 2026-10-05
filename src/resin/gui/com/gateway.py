@@ -4,14 +4,13 @@
 from __future__ import annotations
 from pathlib import Path
 from logging import Logger
-from typing import ( Generator, cast)
+from typing import ( Generator, TypeVar, cast, overload, ClassVar, Literal, Any, Callable)
 import pythoncom
 import win32com.client as win32
 from pyqi import export
 from pyqi.validation import require
 from pyqi.fs import launch_executable
 from ..config import (AppManager, SAPGUI_OBJECT_ID)
-from ..utils.mixin import ReadPropertyMixin
 from ..exceptions import (
     SapComError, 
     SapComponentNotFoundError, 
@@ -24,8 +23,9 @@ from .types import (DispatchLike)
 from lute import (LogMsg, annotate, get_logger)
 mlog = get_logger(Path(__file__).stem)
 
+T = TypeVar('T')
 
-class ComGateway(ReadPropertyMixin):
+class ComGateway():
     """
     *`@extends`* `ReadPropertyMixin` (adds `staticmethod get_property()`)
 
@@ -385,6 +385,130 @@ class ComGateway(ReadPropertyMixin):
 
         return dispatch
 
+    _MISSING: ClassVar[object] = object()
+
+    # No factory, no non-None default.
+    @overload
+    @staticmethod
+    def get_property(
+        dispatch: DispatchLike,
+        prop: str,
+        /,
+        factory: None = None,
+        *,
+        default: None = None,
+        source: str | None = None,
+        _raise: Literal[False] = False,
+    ) -> Any | None: ...
+
+    # No factory, caller provides a default.
+    @overload
+    @staticmethod
+    def get_property(
+        dispatch: DispatchLike,
+        prop: str,
+        /,
+        factory: None = None,
+        *,
+        default: T,
+        source: str | None = None,
+        _raise: bool = False,
+    ) -> T | Any: ...
+
+    # No factory, missing property raises.
+    @overload
+    @staticmethod
+    def get_property(
+        dispatch: DispatchLike,
+        prop: str,
+        /,
+        factory: None = None,
+        *,
+        default: None = None,
+        source: str | None = None,
+        _raise: Literal[True],
+    ) -> Any: ...
+
+    # Factory supplied, missing property raises.
+    @overload
+    @staticmethod
+    def get_property(
+        dispatch: DispatchLike,
+        prop: str,
+        /,
+        factory: Callable[[Any], T],
+        *,
+        default: T | None = None,
+        source: str | None = None,
+        _raise: Literal[True],
+    ) -> T: ...
+
+    # Factory supplied, missing property may return None.
+    @overload
+    @staticmethod
+    def get_property(
+        dispatch: DispatchLike,
+        prop: str,
+        /,
+        factory: Callable[[Any], T],
+        *,
+        default: None = None,
+        source: str | None = None,
+        _raise: Literal[False] = False,
+    ) -> T | None: ...
+
+    # Factory supplied, missing property returns the provided default.
+    @overload
+    @staticmethod
+    def get_property(
+        dispatch: DispatchLike,
+        prop: str,
+        /,
+        factory: Callable[[Any], T],
+        *,
+        default: T,
+        source: str | None = None,
+        _raise: bool = False,
+    ) -> T: ...
+
+    @staticmethod
+    def get_property(
+        dispatch: DispatchLike,
+        prop: str,
+        /,
+        factory: Callable[[Any], T] | None = None,
+        *,
+        default: T | None = None,
+        source: str | None = None,
+        _raise: bool = False,
+    ) -> Any:
+        """Read a dynamic COM property with contextual error handling."""
+        if not prop:
+            raise ValueError("prop must not be empty")
+        if source is None:
+            source = "ReadProperty"
+        try:
+            value = getattr(dispatch, prop, ComGateway._MISSING)
+            if (value is ComGateway._MISSING):
+                if _raise:
+                    raise SapComError(
+                        f"Property {prop!r} was not found on the dispatch object"
+                    )
+                return default
+            if factory is None:
+                return value
+            return factory(value)
+        except SapComError:
+            raise
+        except Exception as e:
+            raise SapComError(
+                LogMsg.err(
+                    e,
+                    f"Unable to read COM property {prop!r}",
+                    dispatch=annotate(dispatch),
+                    source=source,
+                )
+            ) from e
 
 def get_application_com():
     try:
