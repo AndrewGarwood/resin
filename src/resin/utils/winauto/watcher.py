@@ -7,6 +7,7 @@ from typing import (Any, Optional, Generic, TypeVar)
 from dataclasses import dataclass
 from pywinauto.base_wrapper import BaseWrapper
 from threading import Event, Thread
+from .types import DesktopBackend
 from pyqi import export
 import lute
 LogMsg = lute.LogMsg
@@ -24,7 +25,8 @@ class NativeDialogWatcher(ABC, Generic[T]):
     handled: bool = False
     timed_out: bool = False
     error: Optional[BaseException] = None
-
+    backend: DesktopBackend = DesktopBackend.WIN32
+    
     # @property
     # def outpath(self) -> Path:
     #     if (not self._outpath):
@@ -51,7 +53,7 @@ class NativeDialogWatcher(ABC, Generic[T]):
         self.cancel.set()
 
     @abstractmethod
-    def fill_dialog(self, dlg: BaseWrapper | Any, options: T, *args, **kwargs): ... # , class_name: FlexStr[WindowClass] = "Edit"
+    def handle_dialog(self, dlg: BaseWrapper | Any, options: T, *args, **kwargs): ... # , class_name: FlexStr[WindowClass] = "Edit"
 
 
 __all__ = export(NativeDialogWatcher)
