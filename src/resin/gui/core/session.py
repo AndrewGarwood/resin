@@ -4,7 +4,7 @@
 from __future__ import annotations
 
 import time
-from typing import TYPE_CHECKING, TypeVar
+from typing import TYPE_CHECKING, Any
 from dataclasses import dataclass
 from win32com.client import CDispatch
 
@@ -15,14 +15,19 @@ from ..components.factory import wrap_dispatch
 from ..context import SapContext
 from ..exceptions import (
     SapComError,
+    SapGuiError,
     SapGuiStatusError
 )
 from pyqi import require
+from lute import LogMsg
 from resin.gui.com import runtime
 from ..utils.mixin import (FindMixin)
 
 if TYPE_CHECKING:
     from .connection import Connection
+    from ..components.window import FrameWindow
+    from ..components.status_bar import Statusbar
+    from ..components.control import Button
     from ..com.gateway import ComGateway
 
 
@@ -114,7 +119,7 @@ class Session(FindMixin):
         )
 
     @property
-    def active_window(self):
+    def active_window(self) -> FrameWindow:
         try:
             dispatch = self._com.ActiveWindow
         except Exception as e:
@@ -162,8 +167,9 @@ class Session(FindMixin):
     #     return self.user_area
 
     @property
-    def statusbar(self):
-        return self.find("wnd[0]/sbar", _raise=True)
+    def statusbar(self) -> Statusbar:
+        from ..components.status_bar import Statusbar
+        return self.find("wnd[0]/sbar", component_cls=Statusbar, _raise=True)
 
     @property
     def status(self) -> str:
@@ -174,6 +180,21 @@ class Session(FindMixin):
             raise SapComError(
                 f"Unable to read the status bar for session {self.id!r}"
             ) from e
+
+    def press_button(
+        self,
+        btn_id: str,
+        /,
+    ):
+        """ throws error if button not found or other error """
+        from ..components.control import Button
+        try:
+            self.find(btn_id, component_cls=Button, _raise=True).press()
+        except Exception as e:
+            raise SapGuiError(LogMsg.err(
+                e, 
+                f"Error trying to find and press button {btn_id}"
+            ))
 
     def exists(
         self,

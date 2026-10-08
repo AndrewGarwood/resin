@@ -2,5 +2,5 @@
 *`@file`* `utils/winauto/exceptions`
 """
 
-class WindowsAutomationError(RuntimeError):
+class AutomationError(RuntimeError):
     ...

@@ -9,3 +9,5 @@ EXPORT_METHOD_REGISTRY: Registry[ExportMethod, ExportResult] = Registry(
     ExportMethod, 
     normalize_key=ExportMethod.resolve
 )
+
+__all__ = ["EXPORT_METHOD_REGISTRY"]

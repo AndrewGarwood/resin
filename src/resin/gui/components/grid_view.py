@@ -112,9 +112,9 @@ class GridView(Shell):
                 matches.append(row)
         return matches
     
-    def select_row_by_value(self, column: str, value: str, *, ignore_case: bool=True):
+    def select_row_by_value(self, column: str, value: str, *, ignore_case: bool=True, iter_reverse: bool=False):
         """ searches for and clicks row. GridView might close in sapgui, so return none... """
-        row = self.find_row(column, value, ignore_case=ignore_case)
+        row = self.find_row(column, value, ignore_case=ignore_case, iter_reverse=iter_reverse)
         if row is None:
             raise ValueError(LogMsg(
                 f"No row found with {column} == {value}"

@@ -5,152 +5,68 @@
 from dataclasses import dataclass, field as _field
 import time
 from pathlib import Path
-from typing import (Any, Callable, Iterable, Sequence, TypeAlias)
-from pyqi import Array
+from contextlib import contextmanager
+from typing import (Any, Callable, Iterable, Sequence, TypeAlias, TypedDict)
+from pyqi import (Array, LockManager, require, Function, fs)
 from pyqi.models import RetryOptions
-from lute import LogMsg, get_logger
+from lute import LogMsg, get_logger, annotate
+from threading import (Event, Thread)
+from resin.gui.com.runtime import com_apartment
 from pywinauto import Desktop
 from pywinauto.base_wrapper import BaseWrapper
+from resin.utils.winauto.control.types import ControlState
 from resin.utils.winauto.watcher import (NativeDialogWatcher)
 from resin.utils.winauto import (
     inspect_descendants, 
-    WindowsAutomationError, 
+    AutomationError, 
     control_is_available, DesktopBackend, 
-    WindowClass, window
+    WindowClass, window,
 )
+from .locks import NATIVE_DIALOG_HANDLE_LM
+from .save_dialog import (NativeSaveDialogOptions, handle_overwrite, handle_save_edit)
 
 mlog = get_logger(__file__, name_depth=2)
 
-
-DialogControl: TypeAlias = Any
-
-@dataclass
-class NativeSaveDialogOptions():
-    outpath: Path
-    selector: Callable[[Iterable[DialogControl]], DialogControl]
-    """ e.g. 
-    `def select_largest_edit(edits): return max(edits, key=lambda e: e.rectangle().width()) `
-    """
-    retry_edit: Callable[[DialogControl, str, RetryOptions | None], bool] | None = None
-    backend: DesktopBackend = DesktopBackend.WIN32
-    edit_classname: str = "Edit"
-    btn_classname: str = "Button"
-    save_btn_patterns: list[str] = _field(default_factory=list)
-    """
-    defaults to 
-    `[ r"^.*Save.*$", r"^&Save$", r"^Save$", r"^&Open$", r"^Open$", r"^OK$"]`
-    """
-    overwrite_window_classname: str = WindowClass.DIALOG.value
-    overwrite_title_patterns: list[str] = _field(default_factory=list)
-    """
-    defaults to 
-    `[ r".*Confirm Save As.*", r".*Save As.*", r".*already exists.*", r".*Confirm.*",]`
-    """
-    overwrite_btn_titles: list[str] = _field(default_factory=list)
-    """ defaults to 
-    `["Yes", "&Yes", "Replace", "&Replace", "OK"]`
-    """
-    def __post_init__(self):
-        if (not self.save_btn_patterns):
-            self.save_btn_patterns = [
-                r"^.*Save.*$",
-                r"^&Save$",
-                r"^Save$",
-                r"^&Open$",
-                r"^Open$",
-                r"^OK$",
-            ]
-        if (not self.overwrite_title_patterns):
-            self.overwrite_title_patterns = [
-                r".*Confirm Save As.*",
-                r".*Save As.*",
-                r".*already exists.*",
-                r".*Confirm.*",
-            ]
-        if (not self.overwrite_btn_titles):
-            self.overwrite_btn_titles = ["Yes", "&Yes", "Replace", "&Replace", "OK"]
-
-    def confirm_overwrite(self, *, timeout: float=5.0) -> None:
-        desktop = Desktop(backend=self.backend.value)
-        for pat in self.overwrite_title_patterns:
-            try:
-                dlg = desktop.window(
-                    class_name=self.overwrite_window_classname, 
-                    title_re=pat
-                )
-                if (not dlg.exists(timeout=timeout)): continue
-                for btn_title in self.overwrite_btn_titles:
-                    try:
-                        btn = dlg.child_window(title=btn_title, class_name=self.btn_classname)
-                        if (btn.exists(timeout=timeout)):
-                            btn.click()
-                            return
-                    except Exception:
-                        pass
-            except Exception:
-                pass
-
-
-def default_retry_save_edit(edit: DialogControl, expected: str, options: RetryOptions | None=None):
-    if (not options):
-        options = RetryOptions()
-    attempt: int = 0
-    while (attempt < options.max_attempts):
-        edit.set_focus()
-        edit.type_keys("^a{BACKSPACE}", set_foreground=True)
-        edit.type_keys(expected, with_spaces=True, set_foreground=True)
-        time.sleep(0.1)
-        actual = str(edit.window_text())
-        if (actual == expected): return True
-        attempt += 1
-    return False
 
 @dataclass
 class NativeSaveDialogWatcher(NativeDialogWatcher[NativeSaveDialogOptions]):
     def handle_dialog(
         self, 
         dlg: BaseWrapper | Any, 
-        options: NativeSaveDialogOptions, 
-        *args,
-        **kwargs
+        options: NativeSaveDialogOptions,
+        outpath: Path
     ):
-        options.outpath.parent.mkdir(parents=True, exist_ok=True)
-        dlg.set_focus()
-        edits: list[BaseWrapper] = Array.filter(
-            dlg.descendants(class_name=options.edit_classname), 
-            control_is_available
-        )
-        if (not edits):
-            mlog.error(LogMsg(
-                f"No valid '{options.edit_classname}' controls found"
-            ))
-            inspect_descendants(dlg)
-            raise WindowsAutomationError(
-                f"Unable to fill save dialog. No enabled & visible controls found"
+        try:
+            outpath.parent.mkdir(parents=True, exist_ok=True)
+
+            dlg.set_focus()
+            edits: list[BaseWrapper] = Array.filter(
+                dlg.descendants(class_name=options.save_edit.class_name), 
+                control_is_available
             )
-        expected = str(options.outpath)
-        edit = options.selector(edits)
-        edit.set_focus()
-        edit.set_edit_text(expected)
-        time.sleep(0.1)
-        actual = str(edit.window_text())
-        if (options.retry_edit and actual != expected):
-            retry_successful = options.retry_edit(edit, expected, None)
-            if (not retry_successful):
-                raise RuntimeError(LogMsg(
-                    f"Failed to set edit text value to outpath string",
-                    expected=expected,
-                    actual=str(edit.window_text())
+            if (not edits):
+                mlog.error(LogMsg(
+                    f"No valid '{options.save_edit.class_name}' controls found"
                 ))
-            
-        clicked: bool = False
-        for btn_pat in options.save_btn_patterns:
+                inspect_descendants(dlg)
+                raise AutomationError(
+                    f"Unable to fill save dialog. No enabled & visible controls found"
+                )
+            edit = options.save_edit_selector(edits)
+            handle_save_edit(
+                edit, 
+                str(outpath), 
+                options.retry or RetryOptions()
+            )
+            time.sleep(0.1)
+            clicked: bool = False
+            pat = options.save_btn.title_re
             try:
                 btns = Array.filter(
                     dlg.descendants(
-                        title_re=btn_pat, 
-                        class_name=options.btn_classname
-                    ), 
+                        title_re=pat,
+                        class_name=options.save_btn.class_name
+                    ),
                     control_is_available
                 )
                 if (not btns):
@@ -159,10 +75,134 @@ class NativeSaveDialogWatcher(NativeDialogWatcher[NativeSaveDialogOptions]):
                 btn.click_input()
                 clicked = True
             except Exception as e:
-                mlog.warning(LogMsg.err(e, f"Button lookup failed for title_re={btn_pat!r}"))
-        if (not clicked):
-            mlog.debug(f"Confirm Save button not found, pressing 'ENTER'")
-            dlg.type_keys("{ENTER}")
-        self.mark_handled()
+                mlog.warning(LogMsg.err(
+                    e, 
+                    f"Failed to find and click save button",
+                    pattern=str(pat)
+                ))
+            if (not clicked):
+                mlog.debug(f"Confirm Save button not found, pressing 'ENTER'")
+                dlg.type_keys("{ENTER}")
+            time.sleep(0.1)
+            handle_overwrite(
+                options.backend, 
+                options.overwrite_dialog, 
+                options.overwrite_btn
+            )
+            self.mark_handled()
+            time.sleep(1.0)
+        except Exception as e:
+            raise RuntimeError(LogMsg.err(
+                e,
+                f"Failed to handle save dialog.",
+                dlg=annotate(dlg),
+                options=str(options),
+                outpath=str(outpath)
+            )) from e
 
 
+
+def start_watcher(
+    options: NativeSaveDialogOptions, 
+    outpath: Path, 
+    *, 
+    owner_hwnd: int | None=None,
+    timeout: float=30.0, 
+    poll: float=0.15
+): 
+    cancel = Event()
+    done = Event()
+    handled_event = Event()
+    watcher = NativeSaveDialogWatcher(
+        cancel=cancel, 
+        done=done, 
+        handled_event=handled_event, 
+        thread=None, 
+        backend=options.backend
+    )
+    worker = Function.Deferred(
+        _save_worker, 
+        options=options, 
+        outpath=outpath, 
+        watcher=watcher, 
+        cancel=cancel, 
+        done=done, 
+        timeout=timeout, 
+        poll=poll
+    )
+    watcher.thread = Thread(target=worker, name=f"NativeSaveDialogWatcher({owner_hwnd=})", daemon=True)
+    watcher.thread.start()
+    return watcher
+
+
+
+def _save_worker(
+    watcher: NativeSaveDialogWatcher,
+    options: NativeSaveDialogOptions, 
+    outpath: Path, 
+    cancel: Event,
+    done: Event,
+    *, 
+    timeout: float=30.0, 
+    poll: float=0.15
+):
+    with com_apartment():
+        try:
+            deadline = time.monotonic() + timeout
+            desktop = Desktop(backend=options.backend)
+            while (not cancel.is_set() and time.monotonic() < deadline):
+                try:
+                    dlg = desktop.window(
+                        class_name=options.save_dialog.class_name, 
+                        title_re=options.save_dialog.title_re
+                    )
+                    if (dlg.exists(timeout=2.0)):
+                        wrapper = dlg.wrapper_object()
+                        handle = int(wrapper.handle)
+                        if (not NATIVE_DIALOG_HANDLE_LM.claim_handle(handle)):
+                            time.sleep(poll)
+                            continue
+                        try:
+                            window.dump_class(
+                                backend=options.backend, 
+                                class_name=options.save_dialog.class_name
+                            )
+                            dlg.wait(ControlState.VISIBLE_ENABLED.value, timeout=3.0)
+                            watcher.handle_dialog(dlg, options, outpath)
+                            return
+                        finally:
+                            NATIVE_DIALOG_HANDLE_LM.release_handle(handle)
+                except Exception as e:
+                    mlog.warning(LogMsg.err(
+                        e, 
+                        "save worker encountered error while watching for dialog"
+                    ))
+                time.sleep(poll)
+            watcher.timed_out = True
+        except BaseException as e:
+            mlog.warning(LogMsg.err(e))
+        finally:
+            done.set()
+
+@contextmanager
+def native_save_dialog_watcher(
+    options: NativeSaveDialogOptions, 
+    outpath: str | Path, 
+    ownder_hwnd: int,
+    timeout: float = 30.0,
+    poll: float = 0.15, 
+):
+    watcher = start_watcher(
+        options, 
+        fs.to_path(outpath), 
+        owner_hwnd=ownder_hwnd, 
+        timeout=require.positive_number(timeout), 
+        poll=require.positive_number(poll)
+    )
+    try:
+        yield watcher
+    except Exception as e:
+        raise RuntimeError(LogMsg.err(e, outpath=str(outpath))) from e
+    finally:
+        watcher.stop()
+        watcher.wait_done(timeout=3.0)

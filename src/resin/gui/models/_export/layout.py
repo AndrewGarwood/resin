@@ -20,7 +20,7 @@ class LayoutSelectorDict(TypedDict):
     """
     name: str
     """ i.e. layout variant name """
-
+    iter_reverse: bool
 @dataclass
 class LayoutSelector(Json.Serial[LayoutSelectorDict]):
     """
@@ -29,14 +29,16 @@ class LayoutSelector(Json.Serial[LayoutSelectorDict]):
     """
     name: str
     grid_id: str
-    _btn_id: Optional[str]=None
-    _vkey: Optional[int]=None
+    btn_id: Optional[str]=None
+    vkey: Optional[int]=None
+    iter_reverse: bool = False # value depends on how SAP sorts items in the grid...
     def __init__(
         self, 
         name: str, 
         grid_id: str, 
         button_id: Optional[str]=None, 
-        vkey: Optional[int]=None
+        vkey: Optional[int]=None,
+        iter_reverse: bool = False
     ):
         self.name = require.non_empty_string(name, "LayoutSelector.name")
         self.grid_id = require.non_empty_string(grid_id, "LayoutSelector.grid_id")
@@ -46,22 +48,9 @@ class LayoutSelector(Json.Serial[LayoutSelectorDict]):
                 "one of [button_id (str), vkey (int)] is required",
                 self_name=self.name
             ))
-        self._btn_id = button_id
-        self._vkey = vkey
-
-    @property
-    def btn_id(self) -> str:
-        return require.non_empty_string(
-            self._btn_id, 
-            f"{self.name} LayoutSelector.btn_id"
-        )
-
-    @property
-    def vkey(self) -> int:
-        return require.positive_integer(
-            self._vkey, 
-            f"{self.name} LayoutSelector.vkey"
-        )
+        self.btn_id = button_id
+        self.vkey = vkey
+        self.iter_reverse = iter_reverse
 
     @classmethod
     def from_dict(cls, data: LayoutSelectorDict | Mapping[str, Any]):
@@ -76,7 +65,8 @@ class LayoutSelector(Json.Serial[LayoutSelectorDict]):
                 name=layout_name,
                 grid_id=grid_id,
                 button_id=data.get("button_id"),
-                vkey=data.get("vkey")
+                vkey=data.get("vkey"),
+                iter_reverse=data.get("iter_reverse", False)
             )
         except Exception as e:
             raise Exception(LogMsg.err(error=e, received=Json.serialize(data))) from e

@@ -4,13 +4,15 @@
 """
 
 from __future__ import annotations
-from typing import (Literal, overload, Any, TYPE_CHECKING)
+from typing import (Literal, overload, Any, TYPE_CHECKING, TypeVar)
 from ..com import runtime
 from ..components.component import Component
 from pyqi import Function
 
 import lute
 LogMsg = lute.LogMsg
+
+ComponentT = TypeVar("ComponentT", bound=Component)
 
 if TYPE_CHECKING:
     from ..core.session import (Session)
@@ -32,7 +34,8 @@ def wait_for_component(
     component_id: str, 
     /, 
     *, 
-    strict: Literal[True]=True, 
+    component_cls: None=None,
+    _raise: Literal[True]=True, 
     timeout: float=5.0, 
     poll_interval: float=0.1
 ) -> Component: ...
@@ -43,7 +46,20 @@ def wait_for_component(
     component_id: str, 
     /, 
     *, 
-    strict: Literal[False]=False, 
+    component_cls: type[ComponentT],
+    _raise: Literal[True]=True, 
+    timeout: float=5.0, 
+    poll_interval: float=0.1
+) -> ComponentT: ...
+
+@overload
+def wait_for_component(
+    session: Session, 
+    component_id: str, 
+    /, 
+    *, 
+    component_cls: None=None,
+    _raise: Literal[False]=False, 
     timeout: float=5.0, 
     poll_interval: float=0.1
 ) -> Component | None: ...
@@ -53,14 +69,19 @@ def wait_for_component(
     component_id: str, 
     /, 
     *, 
-    strict: bool=False, 
+    component_cls: type[ComponentT] | None=None,
+    _raise: bool=False, 
     timeout: float=5.0, 
     poll_interval: float=0.1
 ) -> Any:
+    """ 
+    *`@returns`* `Function.Deferred(session.find, component_id, _raise=False, component_cls=component_cls)` 
+    if component is found within deadline 
+    """
     return runtime.poll_until(
-        Function.Deferred(session.find, component_id, _raise=False), 
+        Function.Deferred(session.find, component_id, _raise=False, component_cls=component_cls), 
         timeout=timeout, 
         poll_interval=poll_interval, 
         description=f"session.find({component_id})",
-        strict=strict
+        _raise=_raise
     )

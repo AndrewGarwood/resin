@@ -3,9 +3,9 @@
 """
 from pywinauto import Desktop
 import time
-from .types import (WindowClass, DesktopBackend, ControlType, ControlKey)
-from .control import (control_is_available, get_control_key)
-from .exceptions import WindowsAutomationError
+from .types import (WindowClass, DesktopBackend)
+from . import control
+from .exceptions import AutomationError
 from pywinauto import Application
 from pywinauto.base_wrapper import BaseWrapper
 from pyqi import (FlexStr, require, Array, String, export)
@@ -31,7 +31,9 @@ def class_exists(
     class_name: FlexStr[WindowClass],
     visible_only: bool,
 ):
-    return bool(get_class(class_name=class_name, backend=backend, visible_only=visible_only))
+    return bool(get_class(
+        class_name=class_name, backend=backend, visible_only=visible_only
+    ))
 
 def wait_for_class(
     *,
@@ -85,7 +87,7 @@ def find_available_control(
     window: BaseWrapper,
     /,
     title: str,
-    ctrl_types: tuple[ControlType, ...],
+    ctrl_types: tuple[control.ControlClass, ...],
     require_unique: bool=True
 ) -> BaseWrapper:
     matches: list[BaseWrapper] = []
@@ -96,17 +98,17 @@ def find_available_control(
                     title=title, 
                     control_type=str(control_type)
                 ),
-                control_is_available
+                control.is_available
             ))
-        unique_ctrls: dict[ControlKey, BaseWrapper] = {
-            get_control_key(ctrl): ctrl
+        unique_ctrls: dict[control.ControlKey, BaseWrapper] = {
+            control.generate_key(ctrl): ctrl
             for ctrl in matches
         }
         candidates = list(unique_ctrls.values())
         if not candidates:
-            raise WindowsAutomationError(f"No visible & enabled controls found")
+            raise AutomationError(f"No visible & enabled controls found")
         if require_unique and len(candidates) > 1:
-            raise WindowsAutomationError(LogMsg(
+            raise AutomationError(LogMsg(
                 f"Multiple controls found for given title.",
                 controls_found=list(unique_ctrls.keys())
             ))
@@ -139,16 +141,16 @@ def find_window_by_title(
             lambda x: String.contains(str(x.window_text()), title, ignore_case=True)
         )
         if not matches:
-            raise WindowsAutomationError(LogMsg(
-                f"Unable to find window of target workbook", 
+            raise AutomationError(LogMsg(
+                f"Unable to find window of target", 
                 available_window_titles=Array.map(
                     candidates, 
                     lambda x: str(x.window_text())
                 )
             ))
         if require_unique and len(matches) > 1:
-            raise WindowsAutomationError(LogMsg(
-                f"Multiple windows matched target workbook", 
+            raise AutomationError(LogMsg(
+                f"Multiple windows matched target", 
                 matches=Array.map(matches, lambda x: str(x.window_text()))
             ))
         return matches[0]

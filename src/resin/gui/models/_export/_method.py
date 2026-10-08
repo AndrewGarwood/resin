@@ -21,6 +21,7 @@ class InvokeMethodOptionsDict(TypedDict, total=False):
     shortcut_vkey: int
     grid_id: str
     menu_item_id: str
+    menu_item_position: str
 
 @dataclass
 class InvokeMethodOptions(Json.Serial[InvokeMethodOptionsDict]):
@@ -30,12 +31,14 @@ class InvokeMethodOptions(Json.Serial[InvokeMethodOptionsDict]):
     shortcut_vkey: int | None = None # method = 'keyboard_shortcut'
     grid_id: str | None = None # method = 'context_menu'
     menu_item_id: str | None = None # method = 'context_menu'
+    menu_item_position: str | None = None # method = 'context_menu' # less robust alternative to menu_item_id
     ```
     """
     export_button_id: str | None = None
     shortcut_vkey: int | None = None
     grid_id: str | None = None
     menu_item_id: str | None = None
+    menu_item_position: str | None = None
 
     @classmethod
     def from_dict(cls, data: InvokeMethodOptionsDict | dict[str, Any]) -> Self:
@@ -44,7 +47,8 @@ class InvokeMethodOptions(Json.Serial[InvokeMethodOptionsDict]):
                 export_button_id=data.get("export_button_id"),
                 shortcut_vkey=data.get("shortcut_vkey"),
                 grid_id=data.get("grid_id"),
-                menu_item_id=data.get("menu_item_id")
+                menu_item_id=data.get("menu_item_id"),
+                menu_item_position=data.get("menu_item_position")
             )
         except Exception as e:
             raise RuntimeError(LogMsg.err(e, received=Json.serialize(data))) from e

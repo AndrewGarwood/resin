@@ -6,13 +6,19 @@ from typing import Optional, Final
 from pyqi import (BaseIntEnum, BaseStrEnum)
 
 
-WINDOW_MAIN: Final[int] = 0
+MAIN_WINDOW_INDEX: Final[int] = 0
 WINDOW_MODAL: Final[int] = 1
 EXCEL_EXPORT_FUNCTION_CODE = "&XXL"
 """ Context Menu Item """
+EXPORT_MENU_ITEMS = [
+    EXCEL_EXPORT_FUNCTION_CODE,
+    "%PC",
+    "&PC"
+]
+
 EXPAND_GRID_TOOLBAR_BTN_ID = "&NAVIGATION_PROFILE_TOOLBAR_EXPAND"
 EXPORT_TOOLBAR_CONTEXT_BTN_ID = "&MB_EXPORT"
-CHOOSE_LAYOUT_GRID_NAME_COLUMN = "VARIANT"
+SELECT_LAYOUT_GRID_NAME_COLUMN = "VARIANT"
 
 def join(*parts: str) -> str:
     """ *`@returns`* `'/'.join(parts)` """

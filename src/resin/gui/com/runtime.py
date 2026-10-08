@@ -18,6 +18,10 @@ T = TypeVar("T")
 
 @contextmanager
 def com_apartment() -> Generator[None]:
+    """ 
+    context manager that handles 
+    `pythoncom.CoInitialize()` and `pythoncom.CoUninitialize()`
+    """
     pythoncom.CoInitialize()
     try:
         yield
@@ -84,7 +88,7 @@ def poll_until(
     poll_interval: float,
     description: str,
     retry_on: tuple[type[Exception], ...] = (Exception,),
-    strict: Literal[True]=True
+    _raise: Literal[True]=True
 ) -> T: ...
 
 @overload
@@ -95,7 +99,7 @@ def poll_until(
     poll_interval: float,
     description: str,
     retry_on: tuple[type[Exception], ...] = (Exception,),
-    strict: Literal[False]=False
+    _raise: Literal[False]=False
 ) -> T | None: ...
 
 def poll_until(
@@ -105,7 +109,7 @@ def poll_until(
     poll_interval: float,
     description: str,
     retry_on: tuple[type[Exception], ...] = (Exception,),
-    strict: bool=True
+    _raise: bool=True
 ) -> Any:
     timeout, poll_interval = validate_polling(
         timeout=timeout,
@@ -132,7 +136,7 @@ def poll_until(
                     poll_interval=poll_interval,
                 )
             )
-            if (not strict):
+            if (not _raise):
                 mlog.warning(LogMsg.err(error))
                 return None
             if (last_error is not None):
