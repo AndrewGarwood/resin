@@ -17,7 +17,7 @@ class LayoutOptionsDict(TypedDict):
     field_id: str
     name: str
 
-
+@dataclass
 class LayoutOptions(Json.Serial[LayoutOptionsDict]):
     field_id: str
     name: str

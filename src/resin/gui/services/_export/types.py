@@ -4,21 +4,20 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field as _field
-import time
-from pathlib import Path
 from typing import (Any, Callable, Iterable, Sequence, TypeAlias, TypedDict)
-from pyqi import (Array, export)
-from pyqi.models import (RetryOptions, RetryOptionsDict)
-from lute import LogMsg, get_logger
-from pywinauto import Desktop
-from pywinauto.base_wrapper import BaseWrapper
-from resin.utils.winauto.watcher import (NativeDialogWatcher)
+from pyqi import (export)
+from pyqi.models import (RetryOptions)
 from resin.utils.winauto import (DesktopBackend, 
-    Win32Window, ControlOptions
+    ControlOptions, CommonControl
 )
-
-mlog = get_logger(__file__, name_depth=2)
-
+from .constants import (
+    DEFAULT_OVERWRITE_CONFIRM_BUTTON_OPTIONS, 
+    DEFAULT_OVERWRITE_DIALOG_OPTIONS, 
+    DEFAULT_SAVE_BUTTON_OPTIONS,
+    DEFAULT_SAVE_DIALOG_OPTIONS,
+    DEFAULT_SAVE_EDIT_OPTIONS,
+    default_dialog_selector
+)
 
 
 
@@ -27,93 +26,14 @@ DialogControl: TypeAlias = Any
 
 @dataclass
 class NativeSaveDialogOptions:
-    outpath: Path
-    save_dialog_selector: Callable[[Iterable[DialogControl]], DialogControl]
-    save_dialog: ControlOptions
-    save_btn: ControlOptions
-    overwrite_dialog: ControlOptions
-    overwrite_btn: ControlOptions
+    save_dialog: ControlOptions = _field(default=DEFAULT_SAVE_DIALOG_OPTIONS)
+    save_edit_selector: Callable[[Iterable[Any]], Any] = _field(default=default_dialog_selector)
+    save_edit: ControlOptions = _field(default=DEFAULT_SAVE_EDIT_OPTIONS)
+    save_btn: ControlOptions = _field(default=DEFAULT_SAVE_BUTTON_OPTIONS)
+    overwrite_dialog: ControlOptions = _field(default=DEFAULT_OVERWRITE_DIALOG_OPTIONS)
+    overwrite_btn: ControlOptions = _field(default=DEFAULT_OVERWRITE_CONFIRM_BUTTON_OPTIONS)
     retry: RetryOptions = _field(default_factory=RetryOptions)
     backend: DesktopBackend = DesktopBackend.WIN32
 
 
-@dataclass
-class DepNativeSaveDialogOptions():
-    outpath: Path
-    save_dialog_selector: Callable[[Iterable[DialogControl]], DialogControl]
-    """ e.g. 
-    `def select_largest_edit(edits): return max(edits, key=lambda e: e.rectangle().width()) `
-    """
-    retry_func: Callable[[DialogControl, str, RetryOptions | None], bool] | None = None
-    backend: DesktopBackend = DesktopBackend.WIN32
-    edit_classname: str = "Edit"
-    btn_classname: str = "Button"
-    save_btn_patterns: list[str] = _field(default_factory=list)
-    """
-    defaults to 
-    `[ r"^.*Save.*$", r"^&Save$", r"^Save$", r"^&Open$", r"^Open$", r"^OK$"]`
-    """
-    overwrite_window_classname: str = Win32Window.DIALOG.value
-    overwrite_title_patterns: list[str] = _field(default_factory=list)
-    """
-    defaults to 
-    `[ r".*Confirm Save As.*", r".*Save As.*", r".*already exists.*", r".*Confirm.*",]`
-    """
-    overwrite_btn_titles: list[str] = _field(default_factory=list)
-    """ defaults to 
-    `["Yes", "&Yes", "Replace", "&Replace", "OK"]`
-    """
-    def __post_init__(self):
-        if (not self.save_btn_patterns):
-            self.save_btn_patterns = [
-                r"^.*Save.*$",
-                r"^&Save$",
-                r"^Save$",
-                r"^&Open$",
-                r"^Open$",
-                r"^OK$",
-            ]
-        if (not self.overwrite_title_patterns):
-            self.overwrite_title_patterns = [
-                r".*Confirm Save As.*",
-                r".*Save As.*",
-                r".*already exists.*",
-                r".*Confirm.*",
-            ]
-        if (not self.overwrite_btn_titles):
-            self.overwrite_btn_titles = ["Yes", "&Yes", "Replace", "&Replace", "OK"]
-
-    def confirm_overwrite(self, *, timeout: float=5.0) -> None:
-        desktop = Desktop(backend=self.backend.value)
-        for pat in self.overwrite_title_patterns:
-            try:
-                dlg = desktop.window(
-                    class_name=self.overwrite_window_classname, 
-                    title_re=pat
-                )
-                if (not dlg.exists(timeout=timeout)): continue
-                for btn_title in self.overwrite_btn_titles:
-                    try:
-                        btn = dlg.child_window(title=btn_title, class_name=self.btn_classname)
-                        if (btn.exists(timeout=timeout)):
-                            btn.click()
-                            return
-                    except Exception:
-                        pass
-            except Exception:
-                pass
-
-
-def default_retry_save_edit(edit: DialogControl, expected: str, options: RetryOptions | None=None):
-    if (not options):
-        options = RetryOptions()
-    attempt: int = 0
-    while (attempt < options.max_attempts):
-        edit.set_focus()
-        edit.type_keys("^a{BACKSPACE}", set_foreground=True)
-        edit.type_keys(expected, with_spaces=True, set_foreground=True)
-        time.sleep(0.1)
-        actual = str(edit.window_text())
-        if (actual == expected): return True
-        attempt += 1
-    return False
+__all__ = export("DialogControl", NativeSaveDialogOptions)

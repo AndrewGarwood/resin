@@ -46,7 +46,7 @@ class TransactionOptions(Json.Serial[TransactionOptionsDict]):
             _export = data.get('export', None)
             return cls(
                 code=data['code'],
-                method=ExecutionType(_method_value) if _method_value else ExecutionType.STANDARD,
+                method=ExecutionType.resolve(_method_value) if _method_value else ExecutionType.STANDARD,
                 fields=fields,
                 layout=LayoutOptions.from_dict(_layout) if _layout else None,
                 variant=VariantOptions.from_dict(_variant) if _variant else None,
@@ -54,7 +54,8 @@ class TransactionOptions(Json.Serial[TransactionOptionsDict]):
                 _id=data.get('id', None)
             )
         except Exception as e:
-            raise RuntimeError(LogMsg.err(e, received=Json.serialize(data)))
+            raise RuntimeError(LogMsg.err(e, received=Json.serialize(data))) from e
+
 
 
 __all__ = export(TransactionOptions, TransactionOptionsDict)

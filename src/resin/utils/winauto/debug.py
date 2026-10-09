@@ -1,7 +1,12 @@
 """
 *`@file`* `resin/utils/winauto/debug`
 """
+from typing import Any
 from pywinauto.base_wrapper import BaseWrapper
+
+from .types import (ElementInfoDict)
+from pyqi import export, safe
+
 from lute import get_logger, LogMsg
 mlog = get_logger(__file__, name_depth=1)
 
@@ -21,16 +26,20 @@ def inspect_descendants(item: BaseWrapper, /) -> None:
         msg: LogMsg
         try:
             msg = LogMsg(
-            f"@ descendant ({i} / {N})",
-            window_text=f"{d.window_text()!r}",
-            class_name=f"{d.class_name()!r}",
-            handle=f"{d.handle!r}",
-            is_visible=f"{d.is_visible()!r}",
-            is_enabled=f"{d.is_enabled()!r}",
-        )
+                f"@ descendant ({i} / {N})",
+                **element_info(d)
+            )
         except Exception as e:
             msg = LogMsg.err(e, f"<failed to inspect descendant>")
         mlog.debug(msg)
 
+def element_info(el: Any, /) -> ElementInfoDict:
+    return ElementInfoDict(
+        window_text=repr(safe.invoke_method(el, "window_text")),
+        class_name=repr(safe.invoke_method(el, "class_name")),
+        handle=repr(safe.readattr(el, "handle")),
+        is_visible=repr(safe.invoke_method(el, "is_visible")),
+        is_enabled=repr(safe.invoke_method(el, "is_enabled")),
+    )
 
-__all__ = ["inspect_descendants"]
+__all__ = export(inspect_descendants, element_info)

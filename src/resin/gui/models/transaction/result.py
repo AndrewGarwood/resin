@@ -12,9 +12,10 @@ class TransactionDetails():
     exec_tel: Telemetry
     exported: CompletedExport | None=None
 
-@dataclass
-class TransactionResult(Result[TransactionDetails]):
-    """ *`@extends`* `Result[TransactionDetails]` """
-    ...
+# @dataclass
+# class TransactionResult(Result[TransactionDetails]):
+#     """ *`@extends`* `Result[TransactionDetails]` """
+#     ...
+TransactionResult = Result[TransactionDetails]
 
 __all__ = export(TransactionDetails, TransactionResult)

@@ -1,7 +1,7 @@
 """
 *`@file`* `gui/services/_export/registry`
 """
-from pyqi import (Registry)
+from pyqi import (Registry, Result)
 from resin.gui.models._export import (ExportResult, ExportMethod)
 
 

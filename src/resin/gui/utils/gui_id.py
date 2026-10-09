@@ -4,6 +4,7 @@
 """
 from typing import Optional, Final
 from pyqi import (BaseIntEnum, BaseStrEnum)
+from re import match as re_match
 
 
 MAIN_WINDOW_INDEX: Final[int] = 0
@@ -151,6 +152,23 @@ def execute_txn_btn(
     /
 ) -> str:
     return tbar_btn(window_index, toolbar_index, button_index)
+
+
+
+def field_type(field_id: str) -> str:
+    
+    """
+    Extracts the SAP field type prefix from a field ID.
+    - returns empty string if no match found
+    
+    Examples:
+        `"wnd/.../radP_OPTD2"` -> `"rad"`
+        `"wnd/.../ctxtS_VKORG-LOW"` -> `"ctxt"`
+    """
+    last = field_id.rsplit("/", 1)[-1]
+    
+    m = re_match(r"[a-z]+", last)
+    return m.group(0) if m else ""
 
 class VKey(BaseIntEnum):
     """ 

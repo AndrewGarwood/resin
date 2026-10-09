@@ -1,65 +1,21 @@
 """
-*`@file`* `gui/services/_export/save_dialog`
+*`@file`* `gui/services/_export/windows_save`
+- after ExportOptions.invoke, when get windows native dialog instead of sapgui dialog
 """
 from __future__ import annotations
 
 from dataclasses import dataclass, field as _field
 import time
-from pathlib import Path
-from typing import (Any, Callable, Iterable, Literal, Sequence, TypeAlias, TypedDict)
-from pyqi import (Array, export, require)
-from pyqi.models import (RetryOptions, RetryOptionsDict)
+from typing import (Any, Callable, Iterable, Literal)
+from pyqi import (require)
+from pyqi.models import (RetryOptions, )
 from lute import LogMsg, get_logger
 from pywinauto import Desktop
 from pywinauto.base_wrapper import BaseWrapper
-from resin.utils.winauto.watcher import (NativeDialogWatcher)
 from resin.utils.winauto import (DesktopBackend, 
-    Win32Window, ControlOptions, AutomationError, WindowClass, CommonControl
+    ControlOptions, AutomationError, WindowClass, CommonControl
 )
-from .constants import (
-    OVERWRITE_CONFIRM_BUTTON_TITLES, 
-    OVERWRITE_DIALOG_TITLE_PATTERNS, 
-    SAVE_BUTTON_PATTERNS,
-    SAVE_DIALOG_TITLE_PATTERN
-)
-
 mlog = get_logger(__file__, name_depth=2)
-
-def default_dialog_selector(candidates: Iterable[BaseWrapper], /,) -> BaseWrapper:
-    return max(candidates, key=lambda c: c.rectangle().width())
-
-DEFAULT_SAVE_DIALOG_OPTIONS = ControlOptions(
-    class_name=WindowClass.DIALOG,
-    title_re=SAVE_DIALOG_TITLE_PATTERN
-)
-
-DEFAULT_SAVE_EDIT_OPTIONS = ControlOptions(
-    class_name=CommonControl.EDIT
-)
-DEFAULT_SAVE_BUTTON_OPTIONS = ControlOptions(
-    class_name=CommonControl.BUTTON,
-    title_re=SAVE_BUTTON_PATTERNS
-)
-DEFAULT_OVERWRITE_DIALOG_OPTIONS = ControlOptions(
-    class_name=WindowClass.DIALOG,
-    title_re=OVERWRITE_DIALOG_TITLE_PATTERNS
-)
-DEFAULT_OVERWRITE_CONFIRM_BUTTON_OPTIONS = ControlOptions(
-    class_name=CommonControl.BUTTON,
-    title=OVERWRITE_CONFIRM_BUTTON_TITLES
-)
-
-@dataclass
-class NativeSaveDialogOptions:
-    save_dialog: ControlOptions = _field(default=DEFAULT_SAVE_DIALOG_OPTIONS)
-    save_edit_selector: Callable[[Iterable[Any]], Any] = _field(default=default_dialog_selector)
-    save_edit: ControlOptions = _field(default=DEFAULT_SAVE_EDIT_OPTIONS)
-    save_btn: ControlOptions = _field(default=DEFAULT_SAVE_BUTTON_OPTIONS)
-    overwrite_dialog: ControlOptions = _field(default=DEFAULT_OVERWRITE_DIALOG_OPTIONS)
-    overwrite_btn: ControlOptions = _field(default=DEFAULT_OVERWRITE_CONFIRM_BUTTON_OPTIONS)
-    retry: RetryOptions = _field(default_factory=RetryOptions)
-    backend: DesktopBackend = DesktopBackend.WIN32
-
 
 def handle_overwrite(
     backend: DesktopBackend, 

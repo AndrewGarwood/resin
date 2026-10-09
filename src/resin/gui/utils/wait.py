@@ -52,6 +52,19 @@ def wait_for_component(
     poll_interval: float=0.1
 ) -> ComponentT: ...
 
+
+@overload
+def wait_for_component(
+    session: Session, 
+    component_id: str, 
+    /, 
+    *, 
+    component_cls: type[ComponentT],
+    _raise: Literal[False]=False, 
+    timeout: float=5.0, 
+    poll_interval: float=0.1
+) -> ComponentT | None: ...
+
 @overload
 def wait_for_component(
     session: Session, 

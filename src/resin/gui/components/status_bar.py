@@ -66,6 +66,10 @@ class Statusbar(Component):
         self._resolve().DoubleClick()
 
     @property
+    def handle(self) -> int:
+        return self.gateway.get_property(self._resolve(), "Handle", int, _raise=True)
+
+    @property
     def has_long_text(self) -> bool:
         value: Literal[1, 0, -1] = self._gateway.get_property(
             self._resolve(), "MessageHasLongText", _raise=True

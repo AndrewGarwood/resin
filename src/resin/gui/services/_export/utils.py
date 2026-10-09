@@ -2,19 +2,46 @@
 *`@files`* `gui/services/_export/utils`
 """
 
+from pathlib import Path
 import time
+from typing import Callable
 
 from pyqi import Array, export
 from pywinauto import Application
-from resin.utils.winauto import (dump_class, DesktopBackend, wait_for_class, WindowClass)
+from resin.utils.winauto import (dump_class, DesktopBackend, wait_for_class, WindowClass, AutomationError)
 from resin.gui.components.window import FrameWindow
 from resin.gui.models import (ExportOptions, LayoutSelector)
 from resin.gui.components import (GridView)
 from resin.gui.core.session import (Session)
 from resin.gui.utils import (gui_id as GUI, wait_for_component)
 from resin.gui.exceptions import SapGuiError
-from lute import LogMsg
+
+from .watcher import (NativeSaveDialogWatcher)
+from .types import (NativeSaveDialogOptions)
+
 import warnings
+from lute import (LogMsg, get_logger)
+mlog = get_logger(__file__)
+
+"""
+        save_options = (
+            NativeSaveDialogOptions() if save_dialog_options is None
+            else save_dialog_options if isinstance(save_dialog_options, NativeSaveDialogOptions) 
+            else save_dialog_options()
+        )
+"""
+def resolve_native_save_options(
+    save_options: NativeSaveDialogOptions 
+        | Callable[..., NativeSaveDialogOptions] 
+        | None = None, 
+    /,
+) -> NativeSaveDialogOptions:
+    return (
+            NativeSaveDialogOptions() if save_options is None
+            else save_options if isinstance(save_options, NativeSaveDialogOptions) 
+            else save_options()
+        )
+
 
 
 def select_export_menu_item(
@@ -87,8 +114,27 @@ def handle_layout_selection(session: Session, layout: LayoutSelector, /):
         )) from e
 
 
-def open_grid_context_menu_pywinauto(
+def attempt_row_count(
     session: Session, 
+    options: ExportOptions,
+    /
+) -> int | None:
+    try:
+        if (not options.invoke.grid_id):
+            return None
+        grid = session.find(options.invoke.grid_id, component_cls=GridView, _raise=False)
+        if (grid is None):
+            mlog.warning(LogMsg(
+                f"Component not found, unable to obtain row_count from ExportOptions.invoke.grid_id",
+                grid_id=options.invoke.grid_id
+            ))
+            return None
+        return grid.row_count
+    except Exception:
+        return None
+
+
+def open_grid_context_menu_pywinauto(
     main_wnd_handle: int,
     grid_handle: int,
     *, 
@@ -114,7 +160,20 @@ def open_grid_context_menu_pywinauto(
         y = rect.top + 100
         grid.click_input(button="right", coords=(x - rect.left, y - rect.top))
         time.sleep(0.5)
+        menu = wait_for_class(
+            backend=backend, 
+            class_name=menu_class, 
+            visible_only=True,
+            timeout=timeout
+        )
+        if (menu is None):
+            dump_class(backend=backend, class_name=menu_class, visible_only=True)
+            raise AutomationError(LogMsg(
+                f"Failed to open context menu from GridView",
+            )) 
 
 
 
-__all__ = export(handle_layout_selection, select_export_menu_item)
+
+
+__all__ = export(handle_layout_selection, select_export_menu_item, attempt_row_count)

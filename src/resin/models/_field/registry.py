@@ -10,16 +10,16 @@ from ._sentinel import (SentinelKey)
 from re import search as re_search
 from lute import LogMsg
 
-SENTINELS: Final[
+SENTINEL_FUNCTION_REGISTRY: Final[
     Registry[SentinelKey, str]
 ] = Registry(SentinelKey, normalize_key=SentinelKey.resolve)
 
-@SENTINELS.register(SentinelKey.CURRENT_DAY)
+@SENTINEL_FUNCTION_REGISTRY.register(SentinelKey.CURRENT_DAY)
 def current_day(fmt: str=FormatString.MDY_SLASH.value) -> str: 
     return compute_date().strftime(fmt)
 
 
-@SENTINELS.register(SentinelKey.FIRST_DAY_OF_MONTH)
+@SENTINEL_FUNCTION_REGISTRY.register(SentinelKey.FIRST_DAY_OF_MONTH)
 def first_day_of_month_text(
     anchor: str | date | None = None, 
     fmt: str | FormatString = FormatString.MDY_SLASH.value
@@ -28,7 +28,7 @@ def first_day_of_month_text(
     return compute_date(anchor=anchor, day="first").strftime(fmt)
 
 
-@SENTINELS.register(SentinelKey.LAST_DAY_OF_MONTH)
+@SENTINEL_FUNCTION_REGISTRY.register(SentinelKey.LAST_DAY_OF_MONTH)
 def last_day_of_month_text(
     anchor: str | date | None = None, 
     fmt: str | FormatString = FormatString.MDY_SLASH.value
@@ -37,7 +37,7 @@ def last_day_of_month_text(
     return compute_date(anchor=anchor, day="last").strftime(fmt)
 
 
-@SENTINELS.register(SentinelKey.FIRST_DAY_OF_YEAR)
+@SENTINEL_FUNCTION_REGISTRY.register(SentinelKey.FIRST_DAY_OF_YEAR)
 def first_day_of_year_text(
     year: int | None = None,  
     fmt: str | FormatString = FormatString.MDY_SLASH.value
@@ -46,7 +46,7 @@ def first_day_of_year_text(
     return date(y, 1, 1).strftime(fmt)
 
 
-@SENTINELS.register(SentinelKey.LAST_DAY_OF_YEAR)
+@SENTINEL_FUNCTION_REGISTRY.register(SentinelKey.LAST_DAY_OF_YEAR)
 def last_day_of_year_text(
     year: int | None = None,  
     fmt: str | FormatString = FormatString.MDY_SLASH.value
@@ -55,34 +55,34 @@ def last_day_of_year_text(
     return date(y, 12, 31).strftime(fmt)
 
 
-@SENTINELS.register(SentinelKey.ROLLING_YEAR_LOWER)
+@SENTINEL_FUNCTION_REGISTRY.register(SentinelKey.ROLLING_YEAR_LOWER)
 def rolling_year_lower_text(
     fmt: str | FormatString = FormatString.MDY_SLASH.value
     ) -> str:
     return compute_date(year_offset=-1, day="last").strftime(fmt)
 
 
-@SENTINELS.register(SentinelKey.ROLLING_YEAR_UPPER)
+@SENTINEL_FUNCTION_REGISTRY.register(SentinelKey.ROLLING_YEAR_UPPER)
 def rolling_year_upper_text(
     fmt: str | FormatString = FormatString.MDY_SLASH.value
 ) -> str:
     return compute_date(year_offset=0, day="last").strftime(fmt)
 
 
-@SENTINELS.register(SentinelKey.ROLLING_12M_LOWER)
+@SENTINEL_FUNCTION_REGISTRY.register(SentinelKey.ROLLING_12M_LOWER)
 def rolling_12m_lower(
     fmt: str | FormatString = FormatString.MDY_SLASH.value
 ) -> str:
     return compute_date(year_offset=-1, day="first").strftime(fmt)
 
 
-@SENTINELS.register(SentinelKey.ROLLING_12M_UPPER)
+@SENTINEL_FUNCTION_REGISTRY.register(SentinelKey.ROLLING_12M_UPPER)
 def rolling_12m_upper(
     fmt: str | FormatString = FormatString.MDY_SLASH.value
 ) -> str:
     return compute_date(day="last").strftime(fmt)
 
-@SENTINELS.register(SentinelKey.CUSTOM_DATE)
+@SENTINEL_FUNCTION_REGISTRY.register(SentinelKey.CUSTOM_DATE)
 def custom_date(
     *,
     fmt: str | FormatString = FormatString.MDY_SLASH.value, 
@@ -98,7 +98,7 @@ def custom_date(
     """
     return compute_date(**kwargs).strftime(fmt)
 
-@SENTINELS.register(SentinelKey.PREVIOUS_BUSINESS_DAY)
+@SENTINEL_FUNCTION_REGISTRY.register(SentinelKey.PREVIOUS_BUSINESS_DAY)
 def previous_business_day(
     fmt: str | FormatString = FormatString.MDY_SLASH.value,
     holidays: Optional[Collection[str]] = None
@@ -106,7 +106,7 @@ def previous_business_day(
     _holidays = Array.filter_map(list(holidays or []), dt.Date.resolve)
     return dt.Date.previous_business_day(None, holidays=_holidays).strftime(fmt)
 
-@SENTINELS.register(SentinelKey.CUSTOM_RANGE)
+@SENTINEL_FUNCTION_REGISTRY.register(SentinelKey.CUSTOM_RANGE)
 def custom_range(
     *,
     lower: dict[str, Any],
@@ -139,4 +139,4 @@ def custom_range(
     right = f"{ub_left}{sep}{ub_right}"
     return f"{left} - {right}"
 
-__all__ = ["SENTINELS"]
+__all__ = ["SENTINEL_FUNCTION_REGISTRY"]

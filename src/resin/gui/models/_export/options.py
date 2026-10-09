@@ -54,5 +54,22 @@ class ExportOptions(Json.Serial[ExportOptionsDict]):
                 received=Json.serialize(data)
             )) from e
 
+    def success_message(self, *args, **kwargs):
+        return LogMsg(
+            f"Successfully exported data",
+            *args,
+            method=str(self.method),
+            path=str(self.file.path),
+            **kwargs
+        )
+    def failure_message(self, *args, **kwargs):
+        return LogMsg(
+            f"Failed to export data",
+            *args, 
+            method=str(self.method), 
+            path=str(self.file.path),
+            options=str(self),
+            **kwargs
+        )
 
 __all__ = export(ExportOptions, ExportOptionsDict)

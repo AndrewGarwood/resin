@@ -27,6 +27,7 @@ if TYPE_CHECKING:
     from .connection import Connection
     from ..components.window import FrameWindow
     from ..components.status_bar import Statusbar
+    from ..components.control import TextField, CTextField
     from ..components.control import Button
     from ..com.gateway import ComGateway
 
@@ -166,6 +167,9 @@ class Session(FindMixin):
     # def usr(self):
     #     return self.user_area
 
+    # @property
+    # def statusbar(self) -> Any:
+    #     return self.find("wnd[0]/sbar", _raise=True)
     @property
     def statusbar(self) -> Statusbar:
         from ..components.status_bar import Statusbar
@@ -173,13 +177,14 @@ class Session(FindMixin):
 
     @property
     def status(self) -> str:
-        statusbar = self.statusbar
         try:
-            return str(statusbar._com.Text)
+            return self.statusbar.status
         except Exception as e:
-            raise SapComError(
-                f"Unable to read the status bar for session {self.id!r}"
-            ) from e
+            raise SapComError(LogMsg.err(
+                e,
+                f"Failed to read the status bar for session",
+                session_id=repr(self.id)
+            )) from e
 
     def press_button(
         self,
@@ -193,8 +198,27 @@ class Session(FindMixin):
         except Exception as e:
             raise SapGuiError(LogMsg.err(
                 e, 
-                f"Error trying to find and press button {btn_id}"
-            ))
+                f"Error trying to find and press button",
+                btn_id=btn_id
+            )) from e
+
+    def set_text_field(
+        self, 
+        field_id: str, 
+        value: str, 
+        /, 
+        field_cls: type[TextField] | type[CTextField]
+    ):
+        try:
+            self.find(field_id, component_cls=field_cls, _raise=True).set(value)
+        except Exception as e:
+            raise SapGuiError(LogMsg.err(
+                e,
+                f"Error trying to set text field",
+                field_id=field_id,
+                field_cls=field_cls.__name__
+            )) from e
+
 
     def exists(
         self,

@@ -73,26 +73,26 @@ class FileOptions(Json.Serial[FileOptionsDict]):
         self._path = path
     
     @property
-    def outpath(self) -> Path:
+    def path(self) -> Path:
         return self._path
-    @outpath.setter
-    def outpath(self, other: fs.StrPath, /):
+    @path.setter
+    def path(self, other: fs.StrPath, /):
         self._path = fs.to_path(other)
     
     @property
-    def outdir(self) -> Path:
+    def dir(self) -> Path:
         return self._path.parent
-    @outdir.setter
-    def outdir(self, other: fs.StrPath, /):
+    @dir.setter
+    def dir(self, other: fs.StrPath, /):
         self._path = fs.to_path(other).joinpath(self._path.name)
     
     @property
-    def filename(self) -> str:
+    def name(self) -> str:
         return self._path.name
-    @filename.setter
-    def filename(self, other: str, /):
+    @name.setter
+    def name(self, other: str, /):
         self._path = self._path.with_name(other)
-    
+
     @property
     def ref_date(self) -> date | None: 
         return self._ref_date
@@ -105,7 +105,7 @@ class FileOptions(Json.Serial[FileOptionsDict]):
         try:
             _how = data.get('how_apply_ref')
             if (_how and _how != 'auto'): 
-                _how = fs.RenameOperation(_how)
+                _how = fs.RenameOperation.resolve(_how)
             return cls(
                 outpath=data.get("outpath"),
                 outdir=data.get("outdir"),
@@ -125,11 +125,14 @@ class FileOptions(Json.Serial[FileOptionsDict]):
                 self._ref_date.isoformat() if self._ref_date is not None 
                 else 'none'
             ),
-            "outpath": str(self.outpath),
-            "filename": self.filename,
-            "outdir": str(self.outdir)
+            "outpath": str(self.path),
+            "filename": self.name,
+            "outdir": str(self.dir)
         }
 
+    def exists(self):
+        """ *`@returns`* `self.outpath.is_file()`"""
+        return self.path.is_file()
 
 
 __all__ = export(FileOptionsDict, FileOptions)

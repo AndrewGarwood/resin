@@ -2,11 +2,9 @@
 *`@file`* `gui/models/_export/dialog`
 """
 
-from datetime import date
-from pathlib import Path
 from dataclasses import dataclass, replace
-from typing import (Self, TypedDict, Required, NotRequired, Any, Optional, Mapping, TypeAlias, Literal)
-from pyqi import (String, Json, export, Result, dt, fs)
+from typing import (TypedDict, Any)
+from pyqi import (Json, export)
 from lute import LogMsg
 from ...utils import gui_id as GUI
 
@@ -28,7 +26,7 @@ class SaveDialog(Json.Serial[SaveDialogDict]):
     filename_field_id: str
     confirm_button_id: str
     def __init__(
-            self,
+        self,
         dirpath_field_id: str | None = None,
         filename_field_id: str | None = None,
         confirm_button_id: str | None = None

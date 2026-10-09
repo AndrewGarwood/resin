@@ -2,15 +2,15 @@
 *`@file`* `models/_field/_sentinel`
 """
 from pyqi.models import BaseStrEnum
-from pyqi._utils import export
-from typing import (Any, TypedDict, NotRequired)
+from pyqi.utils import export
+from typing import (Any, Literal, Mapping, TypeGuard, TypedDict, NotRequired)
 
 
 SENTINEL_KWARG = "sentinel"
 ARGS_KWARG = "args"
 RESERVED_KWARGS = set([SENTINEL_KWARG, ARGS_KWARG])
 
-def is_reserved_kwarg(value: Any, /) -> bool:
+def is_reserved_kwarg(value: Any, /) -> TypeGuard[Literal["sentinel", "args"]]:
     return isinstance(value, str) and value in RESERVED_KWARGS
 
 
@@ -35,5 +35,17 @@ class SentinelValue(TypedDict):
     sentinel: SentinelKey | str
     args: NotRequired[list[Any]]
 
+def is_sentinel_value(value: Any, /) -> TypeGuard[SentinelValue]:
+    return (
+        isinstance(value, Mapping) 
+        and SENTINEL_KWARG in value
+        and isinstance(value[SENTINEL_KWARG], str)
+    )
 
-__all__ = export(SentinelKey, SentinelValue, is_reserved_kwarg, "SENTINEL_KWARG", "ARGS_KWARG")
+
+
+__all__ = export(
+    SentinelKey, SentinelValue, 
+    is_reserved_kwarg,
+    is_sentinel_value, "SENTINEL_KWARG", "ARGS_KWARG", 
+)

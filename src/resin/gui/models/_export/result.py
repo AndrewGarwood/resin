@@ -12,12 +12,8 @@ class ExportDetails:
     path: Optional[Path]=None
     row_count: Optional[int]=None
 
-@dataclass
-class ExportResult(Result[ExportDetails]):
-    """ 
-    *`@extends`* `Result[TransactionExport]`
-    """
-    ...
+
+ExportResult = Result[ExportDetails]
 
 @dataclass
 class CompletedExport(ExportDetails):

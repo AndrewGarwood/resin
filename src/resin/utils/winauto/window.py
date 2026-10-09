@@ -1,10 +1,14 @@
 """
 *`@file`* `utils/winauto/window`
 """
+from typing import Any, Callable
+
 from pywinauto import Desktop
 import time
 from .types import (WindowClass, DesktopBackend)
+from .debug import element_info
 from . import control
+
 from .exceptions import AutomationError
 from pywinauto import Application
 from pywinauto.base_wrapper import BaseWrapper
@@ -39,9 +43,10 @@ def wait_for_class(
     *,
     backend: FlexStr[DesktopBackend],
     class_name: FlexStr[WindowClass],
-    visible_only: bool,
+    visible_only: bool = True,
     timeout: float = 2.0, 
     poll: float = 0.05,
+    selector: Callable[..., Any] | None = None
 ):
     timeout=require.positive_number(timeout, "timeout")
     poll=require.positive_number(poll, "poll")
@@ -53,7 +58,7 @@ def wait_for_class(
             visible_only=visible_only
         )
         if items:
-            return items[0]
+            return items[0] if not selector else selector(items)
         time.sleep(poll)
     return None
 
@@ -72,11 +77,8 @@ def dump_class(
     for i, w in enumerate(items):
         try:
             mlog.debug(LogMsg(
-                f"@ popup_menu ({i+1} / {N})",
-                title=f"{w.window_text()!r}",
-                class_name=f"{w.class_name()!r}",
-                handle=f"{w.handle}",
-                rectangle=f"{w.rectangle()}"
+                f"@ element ({i+1} / {N})",
+                **element_info(w)
             ))
         except Exception as e:
             mlog.warning(LogMsg.err(e, f"<failed to inspect popup menu>"))

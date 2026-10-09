@@ -23,7 +23,8 @@ from resin.utils.winauto import (
     WindowClass, window,
 )
 from .locks import NATIVE_DIALOG_HANDLE_LM
-from .save_dialog import (NativeSaveDialogOptions, handle_overwrite, handle_save_edit)
+from .types import (NativeSaveDialogOptions)
+from .windows_save import (handle_overwrite, handle_save_edit)
 
 mlog = get_logger(__file__, name_depth=2)
 
@@ -188,14 +189,14 @@ def _save_worker(
 def native_save_dialog_watcher(
     options: NativeSaveDialogOptions, 
     outpath: str | Path, 
-    ownder_hwnd: int,
+    owner_hwnd: int,
     timeout: float = 30.0,
     poll: float = 0.15, 
 ):
     watcher = start_watcher(
         options, 
         fs.to_path(outpath), 
-        owner_hwnd=ownder_hwnd, 
+        owner_hwnd=owner_hwnd, 
         timeout=require.positive_number(timeout), 
         poll=require.positive_number(poll)
     )

@@ -22,6 +22,7 @@ class InvokeMethodOptionsDict(TypedDict, total=False):
     grid_id: str
     menu_item_id: str
     menu_item_position: str
+    menu_element_class: str
 
 @dataclass
 class InvokeMethodOptions(Json.Serial[InvokeMethodOptionsDict]):
@@ -35,20 +36,22 @@ class InvokeMethodOptions(Json.Serial[InvokeMethodOptionsDict]):
     ```
     """
     export_button_id: str | None = None
-    shortcut_vkey: int | None = None
+    vkey: int | None = None
     grid_id: str | None = None
     menu_item_id: str | None = None
     menu_item_position: str | None = None
+    menu_element_class: str | None = None
 
     @classmethod
     def from_dict(cls, data: InvokeMethodOptionsDict | dict[str, Any]) -> Self:
         try:
             return cls(
                 export_button_id=data.get("export_button_id"),
-                shortcut_vkey=data.get("shortcut_vkey"),
+                vkey=data.get("shortcut_vkey"),
                 grid_id=data.get("grid_id"),
                 menu_item_id=data.get("menu_item_id"),
-                menu_item_position=data.get("menu_item_position")
+                menu_item_position=data.get("menu_item_position"),
+                menu_element_class=data.get("menu_element_class"),
             )
         except Exception as e:
             raise RuntimeError(LogMsg.err(e, received=Json.serialize(data))) from e
