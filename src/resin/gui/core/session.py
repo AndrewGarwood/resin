@@ -4,7 +4,7 @@
 from __future__ import annotations
 
 import time
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Literal, TypeVar, overload
 from dataclasses import dataclass
 from win32com.client import CDispatch
 
@@ -18,20 +18,22 @@ from ..exceptions import (
     SapGuiError,
     SapGuiStatusError
 )
-from pyqi import require
+from pyqi import require, Function
 from lute import LogMsg
 from resin.gui.com import runtime
+from resin.gui.utils import (gui_id as GUI, SupportsSet)
 from ..utils.mixin import (FindMixin)
 
 if TYPE_CHECKING:
     from .connection import Connection
-    from ..components.window import FrameWindow
+    from ..components import Component
+    from ..components.window import FrameWindow, MainWindow
     from ..components.status_bar import Statusbar
-    from ..components.control import TextField, CTextField
-    from ..components.control import Button
+    from ..components.control import (TextField, CheckBox)
     from ..com.gateway import ComGateway
 
 
+ComponentT = TypeVar("ComponentT", bound=Component)
 
 
 class Session(FindMixin):
@@ -136,6 +138,24 @@ class Session(FindMixin):
         )
 
     @property
+    def main_window(self) -> MainWindow:
+        
+        try:
+            from ..components.window import MainWindow
+            return self.find(
+                GUI.wnd(GUI.MAIN_WINDOW_INDEX), 
+                component_cls=MainWindow, 
+                _raise=True
+            )
+        except SapGuiError:
+            raise
+        except Exception as e:
+            raise SapGuiError(LogMsg.err(
+                e, 
+                f"Failed to get MainWindow of session"
+            )) from e
+
+    @property
     def info(self) -> CDispatch:
         """
         Return the raw GuiSessionInfo COM object.
@@ -202,12 +222,12 @@ class Session(FindMixin):
                 btn_id=btn_id
             )) from e
 
-    def set_text_field(
+    def set_field_value(
         self, 
         field_id: str, 
-        value: str, 
+        value: Any, # TODO handle when value is list[any]
         /, 
-        field_cls: type[TextField] | type[CTextField]
+        field_cls: type[TextField] | type[CheckBox]
     ):
         try:
             self.find(field_id, component_cls=field_cls, _raise=True).set(value)
@@ -219,6 +239,48 @@ class Session(FindMixin):
                 field_cls=field_cls.__name__
             )) from e
 
+    def select_radio_option(self, btn_id: str, /, option: str | None=None):
+        """
+        *`@param`* `option (str | None)` must be provided when `btn_id` does not contain the option itself
+        - i.e. `if` `btn_id` = `'wnd[i]/path/to/btn/rad'` then must provide option
+        - but `if` `btn_id` = `'wnd[i]/path/to/btn/rad{option}'` then option will be taken from `btn_id`
+        - TODO: maybe handle this in `models/_field/_resolve`
+        """
+        from ..components.control import RadioButton
+        try:
+            btn_id = require.non_empty_string(btn_id, "Radio Button Id")
+            id_parts = require.non_empty_string(btn_id, "Radio Button Id").rsplit("/", 1)
+            if (not id_parts):
+                raise ValueError(f"Invalid btn_id")
+            stem = id_parts[-1]
+            lower_stem = stem.lower()
+            if (not option):
+                if (lower_stem.endswith("rad")):
+                    raise ValueError(LogMsg(
+                        "Must provide argument 'option (str)' when btn_id is base component id" #  ('wnd[i]/base/component/rad')
+                    ))
+                if (len(lower_stem) > 3 and lower_stem.startswith("rad")):
+                    option = stem[3:]
+            if (not option):
+                raise ValueError(
+                    f"Unable to determine radio button option"
+                )
+            base_btn_id = GUI.join(id_parts[0], f"rad{option}")
+            self.find(
+                base_btn_id, 
+                component_cls=RadioButton, 
+                _raise=True
+            ).select()
+            return None
+        except SapGuiError:
+            raise
+        except Exception as e:
+            raise SapGuiError(LogMsg.err(
+                e,
+                f"Failed to select radio button option",
+                btn_id=btn_id,
+                option=option
+            )) from e
 
     def exists(
         self,
@@ -388,7 +450,77 @@ class Session(FindMixin):
                 )
             runtime.pump_waiting_messages()
             time.sleep(min(poll_interval, max(0.0, deadline - time.monotonic())))
-        
+
+    @overload
+    def wait_for_component(
+        self, 
+        component_id: str, 
+        /, 
+        *, 
+        component_cls: None=None,
+        _raise: Literal[True]=True, 
+        timeout: float=5.0, 
+        poll_interval: float=0.1
+    ) -> Component: ...
+
+    @overload
+    def wait_for_component(
+        self, 
+        component_id: str, 
+        /, 
+        *, 
+        component_cls: type[ComponentT],
+        _raise: Literal[True]=True, 
+        timeout: float=5.0, 
+        poll_interval: float=0.1
+    ) -> ComponentT: ...
+
+
+    @overload
+    def wait_for_component(
+        self, 
+        component_id: str, 
+        /, 
+        *, 
+        component_cls: type[ComponentT],
+        _raise: Literal[False]=False, 
+        timeout: float=5.0, 
+        poll_interval: float=0.1
+    ) -> ComponentT | None: ...
+
+    @overload
+    def wait_for_component(
+        self, 
+        component_id: str, 
+        /, 
+        *, 
+        component_cls: None=None,
+        _raise: Literal[False]=False, 
+        timeout: float=5.0, 
+        poll_interval: float=0.1
+    ) -> Component | None: ...
+
+    def wait_for_component(
+        self, 
+        component_id: str, 
+        /, 
+        *, 
+        component_cls: type[ComponentT] | None=None,
+        _raise: bool=False, 
+        timeout: float=5.0, 
+        poll_interval: float=0.1
+    ) -> Any:
+        """ 
+        *`@returns`* `Function.Deferred(session.find, component_id, _raise=False, component_cls=component_cls)` 
+        if component is found within deadline 
+        """
+        return runtime.poll_until(
+            Function.Deferred(self.find, component_id, _raise=False, component_cls=component_cls), 
+            timeout=timeout, 
+            poll_interval=poll_interval, 
+            description=f"session.find({component_id})",
+            _raise=_raise
+        )
 
 @dataclass(frozen=True, slots=True)
 class SessionInfo:

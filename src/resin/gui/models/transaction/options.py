@@ -24,6 +24,8 @@ class TransactionOptionsDict(TypedDict, total=False):
 
 @dataclass
 class TransactionOptions(Json.Serial[TransactionOptionsDict]):
+    """
+    """
     code: str
     _id: str | None = None
     method: ExecutionType = ExecutionType.STANDARD

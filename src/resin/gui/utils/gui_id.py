@@ -29,6 +29,8 @@ def wnd(index: int = 0, /) -> str:
     """ `Window i` → `'wnd[i]'` """
     return f"wnd[{index}]"
 
+def btn(index: int=0, /) -> str:
+    return f"btn[{index}]"
 
 def tbar(window_index: int = 0, toolbar_index: int = 0, /) -> str:
     """ Toolbar; `'wnd[window_index]/tbar[toolbar_index]'` """
@@ -52,7 +54,10 @@ def shell(container_id: str, /) -> str:
 
 def tbar_btn(window_index: int, toolbar_index: int, button_index: int, /) -> str:
     """ button """
-    return f"{tbar(window_index, toolbar_index)}/btn[{button_index}]"
+    return join(
+        tbar(window_index, toolbar_index),
+        btn(button_index)
+    )
 
 
 def ctxt(container_id: str, field_id: str, /) -> str:
@@ -155,8 +160,7 @@ def execute_txn_btn(
 
 
 
-def field_type(field_id: str) -> str:
-    
+def field_type(field_id: str, /) -> str:
     """
     Extracts the SAP field type prefix from a field ID.
     - returns empty string if no match found

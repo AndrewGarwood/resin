@@ -223,15 +223,42 @@ class VComponent(Component):
     """
     @property
     def text(self) -> str:
-        return self._gateway.get_property(self._resolve(), "Text", str, _raise=True, source=self.__class__.__name__)
+        return self._gateway.get_property(
+            self._resolve(), 
+            "Text", str, 
+            _raise=True, 
+            source=self.__class__.__name__
+        )
 
     @property
     def changeable(self) -> bool:
-        return self._gateway.get_property(self._resolve(), "Changeable", bool, _raise=True, source=self.__class__.__name__)
+        return self._gateway.get_property(
+            self._resolve(), 
+            "Changeable", 
+            bool, 
+            _raise=False, 
+            source=self.__class__.__name__
+        ) or False
 
     @property
     def enabled(self) -> bool:
-        return self._gateway.get_property(self._resolve(), "Enabled", bool, _raise=True, source=self.__class__.__name__)
+        return self._gateway.get_property(
+            self._resolve(), 
+            "Enabled", 
+            bool, 
+            _raise=True, 
+            source=self.__class__.__name__
+        )
+
+    @property
+    def tooltip(self) -> str:
+        return self._gateway.get_property(
+            self._resolve(), 
+            "Tooltip", 
+            str, 
+            _raise=True, 
+            source=self.__class__.__name__
+        ) 
 
     def dump_state(self, inner_obj: str="") -> Any:
         return self._resolve().DumpState(inner_obj)

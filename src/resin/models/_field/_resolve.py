@@ -13,13 +13,20 @@ from ._sentinel import (
 
 
 def resolve_field_value(value: Any, /):
+    """ 
+    *`@note`* `if value is Sequnce` then just returns `value` 
+    because expects caller to be responsible for handling multiple values.
+    - e.g. dynamic k-v entry generation (if applicable)
+    - or if list becomes a delimited string, etc.
+    """
     if (isinstance(value, str)):
         try:
             sentinel = SentinelKey.resolve(value)
             return SENTINEL_FUNCTION_REGISTRY.call(sentinel)
         except ValueError:
             return value
-    if (isinstance(value, Sequence)):
+    if (isinstance(value, Sequence)): # handle in use location
+        return value
         raise NotImplementedError(f"Multiple values not yet supported")
     if (is_sentinel_value(value)):
         return resolve_sentinel_value_dict(value)

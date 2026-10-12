@@ -5,7 +5,7 @@ from datetime import date
 from pathlib import Path
 from dataclasses import dataclass
 from typing import (Any, Self, TypedDict, Optional, Literal)
-from pyqi import (Json, export, dt, fs)
+from pyqi import (Json, export, dt, fs, require)
 from lute import LogMsg
 
 class FileOptionsDict(TypedDict, total=False):
@@ -70,6 +70,7 @@ class FileOptions(Json.Serial[FileOptionsDict]):
                 ref=ref,
                 how=how_apply_ref
             ))
+        self._ref_date = ref
         self._path = path
     
     @property
@@ -91,7 +92,9 @@ class FileOptions(Json.Serial[FileOptionsDict]):
         return self._path.name
     @name.setter
     def name(self, other: str, /):
-        self._path = self._path.with_name(other)
+        self._path = self._path.with_name(
+            require.non_empty_string(other, "FileOptions.name")
+        )
 
     @property
     def ref_date(self) -> date | None: 

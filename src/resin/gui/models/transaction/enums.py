@@ -39,7 +39,14 @@ class TransactionStage(String.BaseEnum):
 
 
 class ExecutionType(String.BaseEnum):
+    """
+    ```
+    STANDARD = auto()
+    BACKGROUND = auto() # (results sent as email) # Not Yet implemented
+    ```
+    """
     STANDARD = auto()
     BACKGROUND = auto() # Not Yet implemented
+    # this might be something that some SAP super sets up at company
 
 __all__ = export(TransactionStage, ExecutionType)
