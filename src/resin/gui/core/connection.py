@@ -278,6 +278,12 @@ class Connection:
     ) -> Session:
         """
         Create and return a new session under this connection.
+        - checks configured session capacity;
+        - chooses or validates a source session;
+        - records existing session IDs;
+        - calls CreateSession();
+        - polls until a new runtime ID appears;
+        - returns a wrapper for the new session.
 
         SAP exposes ``CreateSession`` on a GuiSession rather than directly on
         GuiConnection. If ``source_session`` is omitted, the first existing

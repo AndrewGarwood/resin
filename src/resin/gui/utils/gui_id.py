@@ -2,9 +2,10 @@
 *`@file`* `gui/utils/gui_id`
 
 """
-from typing import Optional, Final
+from typing import Literal, Optional, Final
 from pyqi import (BaseIntEnum, BaseStrEnum)
 from re import match as re_match
+from lute import LogMsg
 
 
 MAIN_WINDOW_INDEX: Final[int] = 0
@@ -17,20 +18,25 @@ EXPORT_MENU_ITEMS = [
     "&PC"
 ]
 
+EXEC_ASYNC_IMMEDIATE_START_TIME_BTN_ID = "SOFORT_PUSH"
+
 EXPAND_GRID_TOOLBAR_BTN_ID = "&NAVIGATION_PROFILE_TOOLBAR_EXPAND"
 EXPORT_TOOLBAR_CONTEXT_BTN_ID = "&MB_EXPORT"
 SELECT_LAYOUT_GRID_NAME_COLUMN = "VARIANT"
 
 def join(*parts: str) -> str:
-    """ *`@returns`* `'/'.join(parts)` """
-    return '/'.join(parts)
+    """ *`@returns`* `'/'.join(x.strip().rstrip("/") for x in parts)` """
+    return '/'.join(x.strip().rstrip("/") for x in parts)
 
 def wnd(index: int = 0, /) -> str:
     """ `Window i` → `'wnd[i]'` """
     return f"wnd[{index}]"
 
-def btn(index: int=0, /) -> str:
-    return f"btn[{index}]"
+def btn(stem: int | str=0, /) -> str:
+    """
+    *`@returns`* `f"btn[{stem}]" if (isinstance(stem, int)) else f"btn{stem}"`
+    """
+    return f"btn[{stem}]" if (isinstance(stem, int)) else f"btn{stem}"
 
 def tbar(window_index: int = 0, toolbar_index: int = 0, /) -> str:
     """ Toolbar; `'wnd[window_index]/tbar[toolbar_index]'` """
@@ -40,9 +46,18 @@ def sbar(window_index: int=0, /) -> str:
     """ StatusBar → `'wnd[0]/sbar'` """
     return f"{wnd(window_index)}/sbar"
 
-def usr(window_index: int = 0, /) -> str:
-    """  `GuiUserArea` e.g. `"wnd[0]/usr"` """
-    return f"{wnd(window_index)}/usr"
+def usr(window: int | str | None=None, /) -> str:
+    """
+    *`@returns`* 
+    - `f"{wnd(window)}/usr" if isinstance(window, int)`
+    - `else f"{window}/usr" if (window)`
+    - `else "usr"`    
+    """
+    return (
+        f"{wnd(window)}/usr" if isinstance(window, int) 
+        else f"{window}/usr" if (window) 
+        else "usr"
+    )
 
 def chk(container_id: str, field_id: str, /) -> str:
     return f"{container_id}/chk{field_id}"
@@ -160,6 +175,26 @@ def execute_txn_btn(
 
 
 
+def get_container_index(id: str, /, container_type: str | Literal["wnd"]) -> int | None:
+    """
+    *`@returns`* `None` `if f"{container_type}[" not in item_id`
+    - `else` tries to match `rf"{container_type}\\[(?P<index>\\d+)\\]"` → `int(index)`
+    """
+    if (f"{container_type}[" not in id):
+        return None
+        # raise ValueError(LogMsg(
+        #     f"Unable to find container index",
+        #     f"container_type is not subtring of item_id",
+        #     item_id=item_id,
+        #     container_type=container_type
+        # ))
+    pat = rf"{container_type}\[(?P<index>\d+)\]"
+    m = re_match(pat, id)
+    return int(m.groupdict()["index"]) if m else None
+
+def get_window_index(id: str, /):
+    return get_container_index(id, "wnd")
+
 def field_type(field_id: str, /) -> str:
     """
     Extracts the SAP field type prefix from a field ID.
@@ -180,8 +215,11 @@ class VKey(BaseIntEnum):
     """
     ENTER = 0
     F8 = 8
+    F9 = 9
+    SHIFT_F1 = 13
     SHIFT_F4 = 16
     SHIFT_F5 = 17
+    CTRL_S = 11
     CTRL_F9 = 33
     CTRL_F11 = 35
     CTRL_SHIFT_F7 = 43
@@ -190,7 +228,9 @@ class VKey(BaseIntEnum):
     # =========================================================================
     GET_TXN_VARIANT = 17
     GET_LIST_STATUS = 35
-    EXEC_TXN = 8
+    STANDARD_EXEC_START = 8
+    ASYNC_EXEC_OPEN_OPTIONS = 9
+    ASYNC_EXEC_START = 11
     DEFAULT_EXPORT = 16
     MB52_EXPORT = 43
 

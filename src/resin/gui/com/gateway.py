@@ -58,23 +58,23 @@ class ComGateway():
         self._prog_id = prog_id
         self._logger = logger or mlog
 
-    @staticmethod
-    def com_apartment() -> Generator[None]:
-        """
-        Initialize COM for the current thread.
-        Use this once around the lifetime of a worker thread:
-        ```
-            with ComGateway.com_apartment():
-                run_sap_work()
-        ```
-        `CoInitialize` and `CoUninitialize` are balanced even when an
-        exception occurs.
-        """
-        pythoncom.CoInitialize()
-        try:
-            yield
-        finally:
-            pythoncom.CoUninitialize()
+    # @staticmethod
+    # def com_apartment() -> Generator[None]: # → use .runtime.com_apartment
+    #     """
+    #     Initialize COM for the current thread.
+    #     Use this once around the lifetime of a worker thread:
+    #     ```
+    #         with ComGateway.com_apartment():
+    #             run_sap_work()
+    #     ```
+    #     `CoInitialize` and `CoUninitialize` are balanced even when an
+    #     exception occurs.
+    #     """
+    #     pythoncom.CoInitialize()
+    #     try:
+    #         yield
+    #     finally:
+    #         pythoncom.CoUninitialize()
 
     def get_application(self) -> DispatchLike:
         """

@@ -19,7 +19,6 @@ from .locks import EXPORT_UI_LM
 from .utils import (open_grid_context_menu_pywinauto, resolve_native_save_options)
 from .dialog import (handle_export_dialog)
 
-from lute import LogMsg
 
 
 @EXPORT_METHOD_REGISTRY.register(ExportMethod.CONTEXT_MENU)

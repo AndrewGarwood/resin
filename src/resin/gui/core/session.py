@@ -139,7 +139,7 @@ class Session(FindMixin):
 
     @property
     def main_window(self) -> MainWindow:
-        
+        """ - returns window at index 0 """
         try:
             from ..components.window import MainWindow
             return self.find(
@@ -210,11 +210,18 @@ class Session(FindMixin):
         self,
         btn_id: str,
         /,
+        *,
+        timeout: float=5.0
     ):
         """ throws error if button not found or other error """
         from ..components.control import Button
         try:
-            self.find(btn_id, component_cls=Button, _raise=True).press()
+            self.wait_for_component(
+                btn_id,
+                component_cls=Button, 
+                _raise=True,
+                timeout=timeout
+            ).press()
         except Exception as e:
             raise SapGuiError(LogMsg.err(
                 e, 
@@ -227,10 +234,16 @@ class Session(FindMixin):
         field_id: str, 
         value: Any, # TODO handle when value is list[any]
         /, 
-        field_cls: type[TextField] | type[CheckBox]
+        field_cls: type[TextField] | type[CheckBox],
+        timeout: float=5.0
     ):
         try:
-            self.find(field_id, component_cls=field_cls, _raise=True).set(value)
+            self.wait_for_component(
+                field_id, 
+                component_cls=field_cls, 
+                _raise=True, 
+                timeout=timeout
+            ).set(value)
         except Exception as e:
             raise SapGuiError(LogMsg.err(
                 e,
@@ -239,7 +252,13 @@ class Session(FindMixin):
                 field_cls=field_cls.__name__
             )) from e
 
-    def select_radio_option(self, btn_id: str, /, option: str | None=None):
+    def select_radio_option(
+        self, 
+        btn_id: str, 
+        /, 
+        option: str | None=None,
+        timeout: float=5.0
+    ):
         """
         *`@param`* `option (str | None)` must be provided when `btn_id` does not contain the option itself
         - i.e. `if` `btn_id` = `'wnd[i]/path/to/btn/rad'` then must provide option
@@ -265,11 +284,12 @@ class Session(FindMixin):
                 raise ValueError(
                     f"Unable to determine radio button option"
                 )
-            base_btn_id = GUI.join(id_parts[0], f"rad{option}")
-            self.find(
-                base_btn_id, 
+            resolved_id = GUI.join(id_parts[0], f"rad{option}")
+            self.wait_for_component(
+                resolved_id, 
                 component_cls=RadioButton, 
-                _raise=True
+                _raise=True, 
+                timeout=timeout
             ).select()
             return None
         except SapGuiError:

@@ -42,11 +42,12 @@ class ExecutionType(String.BaseEnum):
     """
     ```
     STANDARD = auto()
-    BACKGROUND = auto() # (results sent as email) # Not Yet implemented
+    BACKGROUND = "async"
     ```
     """
-    STANDARD = auto()
-    BACKGROUND = auto() # Not Yet implemented
-    # this might be something that some SAP super sets up at company
+    STANDARD = "standard_execution"
+    ASYNC = "async_execution"
+
+    # this might be something that some SAP super user sets up at company
 
 __all__ = export(TransactionStage, ExecutionType)

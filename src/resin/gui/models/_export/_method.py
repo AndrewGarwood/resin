@@ -13,7 +13,7 @@ class ExportMethod(String.BaseEnum):
     TOOLBAR_BUTTON = "toolbar_button"
     KEYBOARD_SHORTCUT = "keyboard_shortcut"
     """ e.g. `SendVKey(16)` """
-    TOOLBAR_CONTEXT = "toolbar_context"
+    # TOOLBAR_CONTEXT = "toolbar_context"
     """ ***not implemented/supported*** """
 
 class InvokeMethodOptionsDict(TypedDict, total=False):

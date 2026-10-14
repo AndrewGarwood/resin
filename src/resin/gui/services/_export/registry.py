@@ -1,13 +1,28 @@
 """
 *`@file`* `gui/services/_export/registry`
 """
-from pyqi import (Registry, Result)
-from resin.gui.models._export import (ExportResult, ExportMethod)
+from typing import Callable
+from pyqi import (TypedRegistry)
+from resin.gui.core.session import (Session)
+from resin.gui.models._export import (ExportResult, ExportMethod, ExportOptions)
+from .types import NativeSaveDialogOptions
 
 
-EXPORT_METHOD_REGISTRY: Registry[ExportMethod, ExportResult] = Registry(
+EXPORT_METHOD_REGISTRY: TypedRegistry[
     ExportMethod, 
-    normalize_key=ExportMethod.resolve
+    [
+        Session, 
+        ExportOptions, 
+        NativeSaveDialogOptions 
+            | Callable[..., NativeSaveDialogOptions] 
+            | None
+    ], 
+    ExportResult
+] = TypedRegistry(
+    ExportMethod, 
+    normalize_key=ExportMethod.resolve, 
+    name="ExportMethodRegistry"
 )
+
 
 __all__ = ["EXPORT_METHOD_REGISTRY"]

@@ -7,12 +7,12 @@ import threading, time
 from typing import (Any, Callable, Optional, Self)
 
 from pyqi.models import StageTransition, Telemetry, Flow
-from pyqi import (Json, Array, fs, String, require, dt, safe)
+from pyqi import (Json, Array, fs, String, require, dt, safe, Function, export)
 from lute import LogMsg, get_logger, annotate
-from resin.gui.components.control import (TextField, CTextField, CheckBox)
+from resin.gui.components.control import (TextField,  CheckBox)
 from resin.models._field import (resolve_field_dict, resolve_field_value, SentinelKey)
 from resin.gui.models._export._method import ExportMethod
-from resin.gui.models._export.result import ExportResult
+from resin.gui.models._export.result import (ExportDetails, ExportResult, CompletedExport)
 from resin.gui.models.transaction import (
     TransactionOptions, 
     TransactionResult, 
@@ -21,15 +21,20 @@ from resin.gui.models.transaction import (
     VariantOptions,
     ExecutionType
 )
+from .. import _export as Export
+from resin.gui.com import runtime
 from resin.gui.core import (Session)
-from resin.gui.utils import (gui_id as GUI, wait_for_component)
+from resin.gui.utils import (gui_id as GUI)
 from resin.gui.exceptions import (SapGuiError)
 import re
 
 mlog = get_logger(__file__)
 
 
-def _default_id_extractor(p: Path) -> str:
+def default_id_extractor(p: Path) -> str:
+    """ 
+    *`@returns`* `re.sub(r"^\\d{4}(\\.|-)\\d{2}(\\.|-)\\d{2}_", "", p.stem)` 
+    """
     return re.sub(r"^\d{4}(\.|-)\d{2}(\.|-)\d{2}_", "", p.stem)
 
 class Transaction(Flow[TransactionStage]):
@@ -50,7 +55,7 @@ class Transaction(Flow[TransactionStage]):
         options: TransactionOptions, 
         /,
         _id: fs.StrPath | None = None,
-        extract_id_from_path: Callable[[Path], str] = _default_id_extractor,
+        extract_id_from_path: Callable[[Path], str] | None = default_id_extractor,
         strict: bool = True,
         execute_fn: Callable[[Self, Session], Any] | None = None
     ): 
@@ -185,9 +190,11 @@ class Transaction(Flow[TransactionStage]):
         self,
         target: TransactionStage | set[TransactionStage],
         *,
-        timeout: Optional[float] = None,
+        timeout: float,
     ) -> TransactionStage:
         """
+        *`@param`* `timeout (float | None)` - unit is `seconds`
+
         Wait for this Transaction's local lifecycle state.
 
         This method performs no SAP COM calls, so a coordinator/watch thread
@@ -263,30 +270,43 @@ class Transaction(Flow[TransactionStage]):
         /,
     ) -> None:
         try:
-            mlog.debug(LogMsg(
-                f"Before send vkey to get variant, {session.active_window.id=}"
-            ))
-            session.main_window.send_vkey(GUI.VKey.GET_TXN_VARIANT)
-            mlog.debug(LogMsg(
-                f"After sent vkey, {session.active_window.id=}"
-            ))
-            wait_for_component(
-                session, 
-                GUI.txn_variant_name(),  #TODO: change
+            # mlog.debug(LogMsg(
+            #     f"Before send vkey to get variant, {session.active_window.id=}"
+            # ))
+            main_wnd = session.main_window
+            main_wnd_id = main_wnd.id
+            main_wnd.send_vkey(GUI.VKey.GET_TXN_VARIANT)
+            active_wnd = session.active_window
+            active_wnd_id = active_wnd.id
+            # mlog.debug(LogMsg(
+            #     f"After sent vkey, {active_wnd.id=}"
+            # ))
+            if (main_wnd_id == active_wnd_id):
+                raise SapGuiError(LogMsg(
+                    f"Failed to open variant window from vkey",
+                    main_wnd_id=main_wnd_id,
+                    active_wnd_id=active_wnd_id,
+                    vkey=GUI.VKey.GET_TXN_VARIANT.value
+                ))
+            
+            variant_field_id, created_by_field_id = GUI.txn_variant_fields(
+                GUI.get_window_index(active_wnd_id) or 1
+            )
+            session.wait_for_component(
+                variant_field_id,
                 component_cls=TextField,
                 _raise=True
             ).set(variant.name)
-            wait_for_component(
-                session,
-                GUI.txn_variant_created_by(),  #TODO: change
+            session.wait_for_component(
+                created_by_field_id,
                 component_cls=TextField,
                 _raise=True
             ).set(variant.created_by)
-            session.main_window.send_vkey(GUI.VKey.F8)
+            active_wnd.send_vkey(GUI.VKey.F8)
             time.sleep(0.5)
-            mlog.debug(LogMsg(
-                f"After confirm variant, {session.active_window.id=}"
-            ))
+            # mlog.debug(LogMsg(
+            #     f"After confirm variant, {session.active_window.id=}"
+            # ))
         except SapGuiError:
             raise
         except Exception as e:
@@ -296,7 +316,7 @@ class Transaction(Flow[TransactionStage]):
                 txn_id=self.id,
                 txn_code=self.code,
                 variant=str(self.variant)
-            ))
+            )) from e
         
     def _load_fields(self, session: Session, /):
         for (field_id, value) in self.fields.items():
@@ -329,54 +349,223 @@ class Transaction(Flow[TransactionStage]):
                 )) from e
 
 
-    def execute(self, session: Session, /) -> None:
+    def execute(self, session: Session, /) -> Any:
         self._transition(
             TransactionStage.READY_TO_EXECUTE, 
-            TransactionStage.EXECUTION_RUNNING
+            TransactionStage.DISPATCHING_EXECUTE
         )
         self.exec_tel.start()
-        result: Any | None = None
-        if (self.execute_fn is not None):
-            mlog.info(LogMsg(f"Using injected execute function"))
-            result = self.execute_fn(self, session)
-        match self.method:
-            case ExecutionType.STANDARD:
+        try:
+            self._transition(
+                TransactionStage.DISPATCHING_EXECUTE,
+                TransactionStage.EXECUTION_RUNNING,
+            )
+            if (self.execute_fn is not None):
+                mlog.info(LogMsg(f"Using caller-provided execute function"))
+                result = self.execute_fn(self, session)
+            elif (self.method == ExecutionType.STANDARD):
                 result = self._execute_standard(session)
-            case ExecutionType.BACKGROUND:
+            elif (self.method == ExecutionType.ASYNC):
                 result = self._execute_async(session)
-            case _: # should be unreachable
+            else: # should be unreachable
                 raise RuntimeError(LogMsg.bad_arg(
-                    self.method, "Transaction.method",
+                    self.method, 
+                    "Transaction.method",
                     "Invalid/unsupported ExecutionType", 
                     ExecutionType
                 ))
-        self.exec_tel.stop()
+            self.exec_tel.stop()
+            self._transition(
+                TransactionStage.EXECUTION_RUNNING, 
+                TransactionStage.POST_EXECUTE
+            )
+            return result
+        except Exception as e:
+            if (self.exec_tel.running):
+                self.exec_tel.stop()
+            self._fail(e)
+            raise
+
+    def _execute_standard(self, session: Session, /) -> None:
+        main_wnd = session.main_window
+        main_wnd_id = main_wnd.id
+        main_wnd.send_vkey(GUI.VKey.STANDARD_EXEC_START)
+        time.sleep(0.25)
+        active_wnd = session.active_window
+        active_wnd_id = active_wnd.id
+        confirmation_wnd_exists = (
+            main_wnd_id != active_wnd_id
+            and active_wnd.is_vkey_allowed(GUI.VKey.ENTER)
+        ) # can also try checking if active_wnd.text ~ "Information"
+        if (confirmation_wnd_exists):
+            active_wnd.send_vkey(GUI.VKey.ENTER)
+        return None
+
+    def _execute_async(self, session: Session, /) -> None:
+        main_wnd = session.main_window
+        main_wnd_id = main_wnd.id
+        session.main_window.send_vkey(GUI.VKey.ASYNC_EXEC_OPEN_OPTIONS)
+        time.sleep(0.25)
+        active_wnd = session.active_window
+        active_wnd_id = active_wnd.id
+        if (active_wnd_id == main_wnd_id):
+            raise SapGuiError(LogMsg(
+                f"Failed to open async options window after send vkey",
+                f"(expected active window to change)",
+                main_wnd_id=main_wnd_id,
+                active_wnd_id=active_wnd_id,
+                vkey=GUI.VKey.ASYNC_EXEC_OPEN_OPTIONS
+            ))
+        active_wnd.send_vkey(GUI.VKey.SHIFT_F1)
+        _start_time_btn_id = GUI.join(
+            active_wnd_id, 
+            GUI.usr(),
+            GUI.btn(GUI.EXEC_ASYNC_IMMEDIATE_START_TIME_BTN_ID)
+        )
+        session.press_button(_start_time_btn_id)
+        time.sleep(0.25)
+        active_wnd.send_vkey(GUI.VKey.ASYNC_EXEC_START)
+        return None
+
+    def handle_post_execute(
+        self, 
+        session: Session, 
+        /
+    ) -> None:
+        self.require_current_stage(
+            TransactionStage.POST_EXECUTE, 
+            f"Must be at {TransactionStage.POST_EXECUTE} before handling post execution steps"
+        )
+        if (self.export_options and self.export_options.layout):
+            Export.handle_layout_selection(session, self.export_options.layout)
         self._transition(
-            TransactionStage.EXECUTION_RUNNING, 
-            TransactionStage.POST_EXECUTE
+            TransactionStage.POST_EXECUTE, 
+            TransactionStage.READY_TO_EXPORT
+        )
+        return None
+        
+    
+    def export(self, session: Session, /) -> ExportResult:
+        self.require_current_stage(
+            TransactionStage.READY_TO_EXPORT, 
+            f"Must be at {TransactionStage.READY_TO_EXPORT} before initiating export"
+        )
+        result: ExportResult
+        self.export_tel.start()
+        if (not self.export_options 
+            or self.export_options.method == ExportMethod.NONE
+        ):
+            result = ExportResult(
+                Transaction.export, 
+                ExportDetails(None, None), 
+                success=True,
+                message=LogMsg(
+                    f"Transaction executed successfully.",
+                    f"self.export_options is undefined or indicated 'none' as method",
+                )
+            )
+        else:
+            self._transition(
+                TransactionStage.READY_TO_EXPORT, 
+                TransactionStage.EXPORTING
+            )
+            result = Export.EXPORT_METHOD_REGISTRY.call(
+                self.export_options.method,
+                session, 
+                self.export_options, 
+                None
+            )
+        self.export_tel.stop()
+        self._export_result = result
+        self._transition(
+            set([TransactionStage.READY_TO_EXPORT, TransactionStage.EXPORTING]),
+            TransactionStage.COMPLETED
         )
         return result
     
-    def _execute_standard(self, session: Session, /) -> None:
-        session.main_window.send_vkey(GUI.VKey.EXEC_TXN)
-        active_wnd_id = session.active_window.id
-        confirm_btn = session.active_window.find(GUI.btn(0))
-        raise NotImplementedError()
+    def require_current_stage(
+        self, 
+        stage: TransactionStage, 
+        /, 
+        *info: str | LogMsg
+    ) -> None: # require self.stage to be certain value
+        if (self.stage != stage):
+            raise RuntimeError(LogMsg(
+                f"Invalid Transaction stage",
+                *info,
+                expected_stage=str(stage),
+                actual_stage=str(self.stage)
+            ))
 
-    def _execute_async(self, session: Session, /) -> None: 
-        raise NotImplementedError()
+    def _set_no_export_result(self) -> None:
+        self._export_result = ExportResult(
+            Transaction.export,
+            ExportDetails(None, None),
+            success=True,
+            message=LogMsg(
+                "Transaction executed successfully.",
+                "No export was requested.",
+            ),
+        )
 
-def resolve_transaction_id(
+    def get_result(self) -> TransactionResult:
+        self.require_current_stage(
+            TransactionStage.COMPLETED, 
+            "Only able to generate TransactionResult once completed"
+        )
+        export_result = self.export_result
+        if (export_result) is None:
+            raise RuntimeError(LogMsg(
+                f"Unable to create TransactionResult",
+                f"self.export_result is undefined"
+            ))
+        export_details = export_result.data or ExportDetails()
+        return TransactionResult(
+            Transaction.get_result,
+            data=TransactionDetails(
+                self.id, 
+                self.code, 
+                self.exec_tel,
+                exported=CompletedExport(
+                    export_details.path,
+                    export_details.row_count,
+                    self.export_tel
+                )
+            )
+        )
+
+
+def resolve_transaction_id( # TODO maybe should refine this
     txn: Transaction | TransactionOptions, 
     /, 
     _id: fs.StrPath | None=None,
-    extract_id_from_path: Callable[[Path], str] = _default_id_extractor
+    extract_id_from_path: Callable[[Path], str] | None = default_id_extractor
 ) -> str:
     if (_id is not None):
-        return _id.stem if isinstance(_id, Path) else _id
-    _txn = txn.options if isinstance(txn, Transaction) else txn
-    layout_label = (_txn.layout.name if _txn.layout is not None else None)
-    id_from_path: str | None = None
-    if _txn.export and _txn.export.file and _txn.export.file.path:
-        id_from_path = extract_id_from_path(_txn.export.file.path)
-    return id_from_path or layout_label or _txn.code
+        return (
+            (
+                _id.stem 
+                if extract_id_from_path is None 
+                else extract_id_from_path(_id)
+            ) 
+            if isinstance(_id, Path) 
+            else _id
+        )
+    options = txn.options if isinstance(txn, Transaction) else txn
+    if (options._id): 
+        return options._id
+    layout_label = (
+        options.layout.name 
+        if options.layout is not None 
+        else None
+    )
+    if options.export and options.export.file and options.export.file.path:
+        return (
+            options.export.file.path.stem 
+            if extract_id_from_path is None 
+            else extract_id_from_path(options.export.file.path)
+        )
+    return layout_label or options.code
+
+
+__all__ = export(Transaction, resolve_transaction_id, default_id_extractor)

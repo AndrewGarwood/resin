@@ -54,10 +54,11 @@ class Application:
         gateway: ComGateway | None = None,
     ) -> Self:
         """
-        Attach to the currently running SAP GUI scripting engine.
+        Attach to the currently running SAP GUI scripting engine. 
+        → (have to do fs.launch_executable(AppManager.exe()) before calling this method ? (so that engine exists))
 
         The calling thread must have an initialized COM apartment. Worker
-        threads should use ``ComGateway.com_apartment()``.
+        threads should use ~~`ComGateway.com_apartment()`~~ `com.runtime.com_apartment()` .
         """
         gateway = gateway or ComGateway()
         app = gateway.get_application()
