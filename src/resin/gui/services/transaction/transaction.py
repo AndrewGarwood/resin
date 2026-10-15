@@ -5,24 +5,22 @@
 from pathlib import Path
 import threading, time
 from typing import (Any, Callable, Optional, Self)
-
 from pyqi.models import StageTransition, Telemetry, Flow
-from pyqi import (Json, Array, fs, String, require, dt, safe, Function, export)
+from pyqi import (fs, require, dt, safe, export)
 from lute import LogMsg, get_logger, annotate
+from pyqi.models._result import Result
 from resin.gui.components.control import (TextField,  CheckBox)
 from resin.models._field import (resolve_field_dict, resolve_field_value, SentinelKey)
 from resin.gui.models._export._method import ExportMethod
-from resin.gui.models._export.result import (ExportDetails, ExportResult, CompletedExport)
+from resin.gui.models._export.result import (ExportDetails, CompletedExport)
 from resin.gui.models.transaction import (
     TransactionOptions, 
-    TransactionResult, 
     TransactionDetails, 
     TransactionStage,
     VariantOptions,
     ExecutionType
 )
-from .. import _export as Export
-from resin.gui.com import runtime
+from .. import _export as ExportService
 from resin.gui.core import (Session)
 from resin.gui.utils import (gui_id as GUI)
 from resin.gui.exceptions import (SapGuiError)
@@ -78,8 +76,8 @@ class Transaction(Flow[TransactionStage]):
         self.export_tel = Telemetry()
         self._stage = TransactionStage.CREATED
         self._stage_history: list[StageTransition[TransactionStage]] = []
-        self._failure: Optional[BaseException] = None
-        self._export_result: Optional[ExportResult] = None
+        self._failure: BaseException | None = None
+        self._export_result: Result[ExportDetails] | None = None
         self._state_lock = threading.RLock()
         self._state_changed = threading.Condition(self._state_lock)
 
@@ -108,7 +106,7 @@ class Transaction(Flow[TransactionStage]):
             return self._failure
 
     @property
-    def export_result(self) -> Optional[ExportResult]:
+    def export_result(self) -> Result[ExportDetails] | None:
         with self._state_lock:
             return self._export_result
 
@@ -437,7 +435,7 @@ class Transaction(Flow[TransactionStage]):
             f"Must be at {TransactionStage.POST_EXECUTE} before handling post execution steps"
         )
         if (self.export_options and self.export_options.layout):
-            Export.handle_layout_selection(session, self.export_options.layout)
+            ExportService.handle_layout_selection(session, self.export_options.layout)
         self._transition(
             TransactionStage.POST_EXECUTE, 
             TransactionStage.READY_TO_EXPORT
@@ -445,17 +443,17 @@ class Transaction(Flow[TransactionStage]):
         return None
         
     
-    def export(self, session: Session, /) -> ExportResult:
+    def export(self, session: Session, /) -> Result[ExportDetails]:
         self.require_current_stage(
             TransactionStage.READY_TO_EXPORT, 
             f"Must be at {TransactionStage.READY_TO_EXPORT} before initiating export"
         )
-        result: ExportResult
+        result: Result[ExportDetails]
         self.export_tel.start()
         if (not self.export_options 
             or self.export_options.method == ExportMethod.NONE
         ):
-            result = ExportResult(
+            result = Result(
                 Transaction.export, 
                 ExportDetails(None, None), 
                 success=True,
@@ -469,7 +467,7 @@ class Transaction(Flow[TransactionStage]):
                 TransactionStage.READY_TO_EXPORT, 
                 TransactionStage.EXPORTING
             )
-            result = Export.EXPORT_METHOD_REGISTRY.call(
+            result = ExportService.EXPORT_METHOD_REGISTRY.call(
                 self.export_options.method,
                 session, 
                 self.export_options, 
@@ -498,7 +496,7 @@ class Transaction(Flow[TransactionStage]):
             ))
 
     def _set_no_export_result(self) -> None:
-        self._export_result = ExportResult(
+        self._export_result = Result(
             Transaction.export,
             ExportDetails(None, None),
             success=True,
@@ -508,7 +506,7 @@ class Transaction(Flow[TransactionStage]):
             ),
         )
 
-    def get_result(self) -> TransactionResult:
+    def get_result(self) -> Result[TransactionDetails]:
         self.require_current_stage(
             TransactionStage.COMPLETED, 
             "Only able to generate TransactionResult once completed"
@@ -520,7 +518,7 @@ class Transaction(Flow[TransactionStage]):
                 f"self.export_result is undefined"
             ))
         export_details = export_result.data or ExportDetails()
-        return TransactionResult(
+        return Result(
             Transaction.get_result,
             data=TransactionDetails(
                 self.id, 

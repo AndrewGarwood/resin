@@ -33,7 +33,7 @@ if TYPE_CHECKING:
     from ..com.gateway import ComGateway
 
 
-ComponentT = TypeVar("ComponentT", bound=Component)
+ComponentT = TypeVar("ComponentT", bound="Component")
 
 
 class Session(FindMixin):

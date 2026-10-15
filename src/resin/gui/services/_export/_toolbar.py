@@ -1,12 +1,12 @@
 """
 *`@file`* `gui/services/_export/_toolbar`
 """
-
+from __future__ import annotations
 import time
 from typing import (Callable)
-from pyqi import (require, fs)
+from pyqi import (require, fs, Result)
 from resin.gui.components.window import MainWindow
-from resin.gui.models import (ExportMethod, ExportResult, ExportOptions)
+from resin.gui.models import (ExportMethod, ExportOptions)
 from resin.gui.core import Session
 from resin.gui.models._export.result import ExportDetails
 from resin.gui.utils import (gui_id as GUI)
@@ -25,7 +25,7 @@ def via_toolbar(
     save_dialog_options: NativeSaveDialogOptions 
         | Callable[..., NativeSaveDialogOptions] 
         | None = None
-) -> ExportResult: 
+) -> Result[ExportDetails]: 
     try:
         if (options.method.value != ExportMethod.TOOLBAR_BUTTON.value):
             raise ValueError(
@@ -48,7 +48,7 @@ def via_toolbar(
                 session.press_button(btn_id)
                 handle_export_dialog(session, options, watcher)
         saved = fs.wait_for_file_exists(options.file.path)
-        return ExportResult.ok(
+        return Result.ok(
             via_toolbar,
             data=ExportDetails(
                 saved, 
@@ -57,7 +57,7 @@ def via_toolbar(
             message=options.success_message()
         )
     except Exception as e:
-        return ExportResult.fail(
+        return Result.fail(
             via_toolbar, 
             error=e, 
             message=options.success_message()

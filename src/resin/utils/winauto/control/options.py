@@ -1,6 +1,7 @@
 """
 *`@file`* `utils/winauto/control/options`
 """
+from __future__ import annotations
 from typing import (Self, TypedDict, Any)
 from pyqi import (Json, Arbitrary, resolve_arbitrary, Array, export)
 from .types import ControlClass
@@ -71,7 +72,4 @@ class ControlOptions(Json.Serial[ControlOptionsDict]):
             visible_only=data.get('visible_only'),
         )
 
-    def __str__(self) -> str:
-        return super().__str__()
-
-__all__ = export(ControlOptionsDict, ControlOptionsDict)
+__all__ = export(ControlOptionsDict, ControlOptions)

@@ -9,23 +9,31 @@ from collections.abc import Iterable
 from concurrent.futures import Future
 from dataclasses import dataclass
 from typing import Any, Self, Sequence
+from resin.gui.com import (runtime)
+from resin.gui.services.pool.connection import ConnectionLease
 from resin.gui.services.transaction import Transaction
-from resin.gui.models.transaction import (TransactionStage, TransactionResult)
+from resin.gui.models.transaction import (TransactionStage, TransactionDetails)
+from resin.gui.models.connection_options import (ConnectionOptions)
 from .options import (SessionPoolOptions)
 from .worker import (SessionWorker)
 from .assignment import (TransactionAssignment, assign_batch)
 from .waiters import (wait_for_commands)
-from .types import (PendingCommand)
+from .types import (PendingCommand, SapGuiLauncher)
 from .command import (SessionCommandType)
 from .session_binding import (SessionBinding)
 from .session_locator import (SessionLocator)
+from .provisioner import (SessionProvisioner, SessionProvisionerOptions)
+from .provisioner_types import (SessionProvisioningResult)
 from .exceptions import (SessionPoolError)
-from pyqi import (Arbitrary, resolve_arbitrary, Array)
+from pyqi import (Arbitrary, resolve_arbitrary, Array, Result)
 
-from lute import (LogMsg)
 
 
 class SessionPool():
+    """
+    - *`@classmethod`* `bootstrap`
+    - *`@classmethod`* `from_provisioner`
+    """
     options: SessionPoolOptions
     _started: bool
     _closed: bool
@@ -33,22 +41,110 @@ class SessionPool():
     def __init__(
         self, 
         bindings: Arbitrary[SessionBinding],
-        options: SessionPoolOptions | None = None
+        options: SessionPoolOptions | None = None,
+        *,
+        connection_lease: ConnectionLease | None=None
+
     ):
         binding_list = resolve_arbitrary(bindings)
+        if (not binding_list):
+            raise ValueError(
+                f"SessionPool requires at least 1 SessionBinding"
+            )
         self.validate_bindings(binding_list)
+        self._connection_lease = connection_lease
+        if self._connection_lease is not None:
+            self._validate_connection_lease(
+                binding_list,
+                self._connection_lease,
+            )
         self._workers = [
             SessionWorker(str(i), b) 
             for i, b in enumerate(binding_list)
         ]
-        if (not self._workers):
-            raise ValueError(
-                f"SessionPool requires at least 1 SessionBinding"
-            )
         self.options = options or SessionPoolOptions()
         self._started = False
         self._closed = False
+    
+    @classmethod
+    def provisioned(
+        cls, 
+        provisioner: SessionProvisioner, 
+        /, 
+        *, 
+        options: SessionPoolOptions | None=None
+    ) -> tuple[Self, SessionProvisioningResult]:
+        result = provisioner.provision()
+        pool = cls(
+            result.bindings,
+            options
+        )
+        return (pool, result)
 
+    @classmethod
+    def from_provision_result(
+        cls,
+        provision_result: SessionProvisioningResult,
+        /,
+        *,
+        options: SessionPoolOptions | None = None,
+    ) -> Self:
+        return cls(
+            provision_result.bindings,
+            options=options,
+            connection_lease=provision_result.connection,
+        )
+    
+    @classmethod
+    def from_provisioner(
+        cls, 
+        provisioner: SessionProvisioner, 
+        /, 
+        *, 
+        options: SessionPoolOptions | None=None
+    ) -> Self:
+        result = provisioner.provision()
+        return cls(
+            result.bindings,
+            options
+        )
+    @classmethod
+    def bootstrap(
+        cls,
+        session_count: int,
+        /,
+        options: SessionPoolOptions | None = None,
+        connection_options: ConnectionOptions | None = None,
+        provisioner_options: SessionProvisionerOptions | None = None,
+        launch_if_unavailable: bool = False,
+        launcher: SapGuiLauncher | None = None,
+    ) -> Self:
+        if (not provisioner_options): 
+            provisioner_options = SessionProvisionerOptions(
+                session_count=session_count,
+                connection=connection_options or ConnectionOptions(),
+                launch_if_unavailable=launch_if_unavailable
+            )
+        return cls.from_provisioner(
+            SessionProvisioner(provisioner_options, launcher=launcher), 
+            options=options
+        )
+    @classmethod
+    def from_locators(
+        cls,
+        locators: Iterable[SessionLocator],
+        /,
+        *,
+        options: SessionPoolOptions | None = None,
+        close_on_exit: bool = False,
+    ) -> Self:
+        return cls(
+            Array.map(
+                locators, 
+                lambda loc: SessionBinding(loc, close_on_exit)
+            ),
+            options=options
+        )
 
     @property
     def size(self) -> int:
@@ -92,15 +188,69 @@ class SessionPool():
 
         self._started = True
 
+    # def close(self) -> None:
+    #     if self._closed:
+    #         return
+    #     try:
+    #         self._stop_workers(self._workers)
+    #     finally:
+    #         self._closed = True
+    #         self._started = False
     def close(self) -> None:
         if self._closed:
             return
+
+        errors: list[tuple[str, BaseException]] = []
+
         try:
-            self._stop_workers(self._workers)
+            try:
+                self._stop_workers(self._workers)
+            except BaseException as error:
+                errors.append(
+                    ("stop-workers", error)
+                )
+            if self._has_live_workers():
+                errors.append(
+                    (
+                        "close-connection",
+                        RuntimeError(
+                            "The owned SAP connection was not closed "
+                            "because one or more session workers are "
+                            "still running"
+                        ),
+                    )
+                )
+            else:
+                try:
+                    self._close_owned_connection()
+                except BaseException as error:
+                    errors.append(
+                        ("close-connection", error)
+                    )
         finally:
             self._closed = True
             self._started = False
 
+        if errors:
+            raise SessionPoolError(
+                "SessionPool encountered one or more "
+                "shutdown errors",
+                errors=errors,
+            )
+    def _has_live_workers(self) -> bool:
+        return any(
+            worker.is_alive
+            for worker in self._workers
+        )
+    def _close_owned_connection(self) -> None:
+        lease = self._connection_lease
+
+        if lease is None or not lease.close_on_exit:
+            return
+
+        with runtime.com_apartment():
+            connection = lease.locator.resolve()
+            connection.close()
     def _stop_workers(
         self,
         workers: Iterable[SessionWorker],
@@ -153,7 +303,7 @@ class SessionPool():
         self._require_started()
         txns = list(resolve_arbitrary(transactions))
         self.validate_transactions(txns)
-        results: list[TransactionResult] = []
+        results: list[Result[TransactionDetails]] = []
         for batch_start in range(0, len(txns), self.size):
             batch = txns[batch_start: batch_start + self.size]
             assignments = assign_batch(batch, self._workers)
@@ -328,7 +478,34 @@ class SessionPool():
                     f"submitted from stage "
                     f"{txn.stage!s}"
                 )
-    
+    @staticmethod
+    def _validate_connection_lease(
+        bindings: Iterable[SessionBinding],
+        lease: ConnectionLease,
+        /,
+    ) -> None:
+        expected_connection_id = (
+            lease.locator.connection_id
+        )
+
+        invalid_session_ids = [
+            binding.locator.session_id
+            for binding in bindings
+            if (
+                binding.locator.connection_id
+                != expected_connection_id
+            )
+        ]
+
+        if invalid_session_ids:
+            raise ValueError(
+                "Session bindings do not all belong to the "
+                "leased connection: "
+                f"expected_connection_id="
+                f"{expected_connection_id!r}, "
+                f"invalid_session_ids="
+                f"{invalid_session_ids!r}"
+            )
     @staticmethod
     def validate_bindings(
         bindings: Iterable[SessionBinding],
@@ -353,23 +530,7 @@ class SessionPool():
                 )
 
             seen.add(key)
-    
-    @classmethod
-    def from_locators(
-        cls,
-        locators: Iterable[SessionLocator],
-        /,
-        *,
-        options: SessionPoolOptions | None = None,
-        close_on_exit: bool = False,
-    ) -> Self:
-        return cls(
-            Array.map(
-                locators, 
-                lambda loc: SessionBinding(loc, close_on_exit)
-            ),
-            options=options
-        )
+
     
     def _require_started(self) -> None:
         """ validates that `self._closed is False` and `self._started is True`"""
@@ -380,3 +541,5 @@ class SessionPool():
             raise RuntimeError(
                 "SessionPool has not been started"
             )
+
+__all__ = ["SessionPool"]

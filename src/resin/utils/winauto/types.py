@@ -4,7 +4,6 @@
 from __future__ import annotations
 from typing import (Any, TypedDict)
 from pyqi import BaseStrEnum, export
-from .control.types import Win32Window as WindowClass
 
 
 class DesktopBackend(BaseStrEnum):
@@ -26,5 +25,5 @@ class ElementInfoDict(TypedDict, total=False):
     is_enabled: bool | str | None
 
 __all__ = export(
-    DesktopBackend, WindowClass, ElementInfoDict
+    DesktopBackend, ElementInfoDict
 )

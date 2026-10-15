@@ -3,13 +3,10 @@
 """
 from collections.abc import Iterable
 from .types import (PendingCommand)
-from .assignment import (TransactionAssignment)
 from .exceptions import (SessionPoolError)
 
 from collections.abc import Iterable
-from concurrent.futures import Future, wait, ALL_COMPLETED
-from dataclasses import dataclass
-from typing import Any
+from concurrent.futures import wait, ALL_COMPLETED
 
 def wait_for_commands(
     pending: Iterable[PendingCommand],

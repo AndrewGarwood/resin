@@ -3,6 +3,7 @@
 """
 
 from . import _export as ExportService
+from . import transaction as TransactionService
 from .transaction import Transaction
 
 from . import pool as SessionPoolService

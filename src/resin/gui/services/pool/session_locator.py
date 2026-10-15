@@ -48,3 +48,5 @@ class SessionLocator():
 
     def __call__(self, *, gateway: ComGateway | None = None) -> Session:
         return self.resolve(gateway=gateway)
+
+__all__ = ['SessionLocator']

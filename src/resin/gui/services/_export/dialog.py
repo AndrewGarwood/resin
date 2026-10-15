@@ -3,7 +3,7 @@
 - after ExportOptions.invoke, handles sapgui save dialog 
 or windowsnative save dialog
 """
-
+from __future__ import annotations
 from pyqi import export
 from resin.gui.components.control import Button
 from resin.gui.models import (ExportOptions)
@@ -90,4 +90,4 @@ def _try_native_dialog(
     return False
 
 
-__all__ = export(_try_sapgui_dialog, handle_export_dialog)
+__all__ = export(handle_export_dialog)

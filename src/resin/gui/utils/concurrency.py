@@ -20,25 +20,6 @@ def thread_alias() -> str:
     """ *`@returns`* `threading.current_thread().name.split("-")[1]` """
     return threading.current_thread().name.split("-")[1]
 
-thread_id = thread_alias # temp during refactor
-
-def _session_key(session: Any, /) -> str:
-    conn_id = getattr(session, "_conn_id", None)
-    session_id = getattr(session, "_session_id", None)
-    if (not conn_id or not session_id):
-        raise RuntimeError(f"Cannot build SAP session lock key. {conn_id=}, {session_id=}")
-    return f"{conn_id}:{session_id}"
-
-
-def _get_session_lock(session: Any, /) -> threading.RLock:
-    key = _session_key(session)
-    with _SESSION_LOCKS_GUARD:
-        lock = _SESSION_LOCKS.get(key)
-        if lock is None:
-            lock = threading.RLock()
-            _SESSION_LOCKS[key] = lock
-        return lock
-
 def wait_for_session_idle(session: Any, /, timeout: float = 60.0, poll: float = 0.05) -> None:
     start = time.time()
     if (not hasattr(session, "busy")):
@@ -51,7 +32,29 @@ def wait_for_session_idle(session: Any, /, timeout: float = 60.0, poll: float = 
             raise TimeoutError("SAP session remained busy too long")
         time.sleep(poll)
 
+
+def _session_key(session: Any, /) -> str:
+    """ ***@deprecated*** """
+    conn_id = getattr(session, "_conn_id", None)
+    session_id = getattr(session, "_session_id", None)
+    if (not conn_id or not session_id):
+        raise RuntimeError(f"Cannot build SAP session lock key. {conn_id=}, {session_id=}")
+    return f"{conn_id}:{session_id}"
+
+
+def _get_session_lock(session: Any, /) -> threading.RLock:
+    """ ***@deprecated*** """
+    key = _session_key(session)
+    with _SESSION_LOCKS_GUARD:
+        lock = _SESSION_LOCKS.get(key)
+        if lock is None:
+            lock = threading.RLock()
+            _SESSION_LOCKS[key] = lock
+        return lock
+
+
 def _pump_wait(seconds: float, /) -> None:
+    """ ***@deprecated*** """
     deadline = time.monotonic() + seconds
     while time.monotonic() < deadline:
         try: 

@@ -17,7 +17,7 @@ class TransactionOptionsDict(TypedDict, total=False):
     variant: VariantOptionsDict
     layout: LayoutOptionsDict
     export: ExportOptionsDict
-    exec_how: ExecutionType | str
+    method: ExecutionType | str
     fields: dict[str, Any]
     id: str
 
@@ -37,7 +37,7 @@ class TransactionOptions(Json.Serial[TransactionOptionsDict]):
     @classmethod
     def from_dict(cls, data: TransactionOptionsDict | dict[str, Any]) -> Self:
         try:
-            _method_value = data.get('exec_how', None)
+            _method_value = data.get('method', None)
             fields = data.get('fields', dict())
             if (fields and not isinstance(fields, dict)):
                 raise TypeError(LogMsg.bad_arg(

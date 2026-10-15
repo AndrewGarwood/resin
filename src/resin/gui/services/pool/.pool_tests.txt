@@ -1,0 +1,35 @@
+Tests to conduct:
+
+
+1. Existing connection with enough sessions
+   -> all borrowed
+   -> no sessions created
+
+2. Existing connection with one session, count=3
+   -> one borrowed
+   -> two created and owned
+
+3. No SAP application, launch disabled
+   -> SapGuiNotAvailableError
+
+4. No SAP application, launch enabled, no launcher
+   -> configuration error
+
+5. SAP application launches but never becomes available
+   -> TimeoutError
+
+6. App exists, no connection, description configured
+   -> open connection
+
+7. App exists, no connection, no bootstrap configuration
+   -> SapConnectionNotFoundError
+
+8. Selected connection has zero sessions
+   -> explicit bootstrap error
+
+9. Duplicate session IDs appear
+   -> provisioning validation error
+
+10. Pool exits
+    -> created sessions close
+    -> borrowed bootstrap session remains

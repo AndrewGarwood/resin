@@ -41,12 +41,12 @@ class TransactionStage(String.BaseEnum):
 class ExecutionType(String.BaseEnum):
     """
     ```
-    STANDARD = auto()
-    BACKGROUND = "async"
+    STANDARD = "standard"
+    ASYNC = "async"
     ```
     """
-    STANDARD = "standard_execution"
-    ASYNC = "async_execution"
+    STANDARD = "standard"
+    ASYNC = "async"
 
     # this might be something that some SAP super user sets up at company
 

@@ -4,12 +4,10 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field as _field
-from typing import (Any, Callable, Iterable, Sequence, TypeAlias, TypedDict)
+from typing import (Any, Callable, Iterable, TypeAlias)
 from pyqi import (export)
 from pyqi.models import (RetryOptions)
-from resin.utils.winauto import (DesktopBackend, 
-    ControlOptions, CommonControl
-)
+from resin.utils.winauto import (DesktopBackend, ControlOptions)
 from .constants import (
     DEFAULT_OVERWRITE_CONFIRM_BUTTON_OPTIONS, 
     DEFAULT_OVERWRITE_DIALOG_OPTIONS, 

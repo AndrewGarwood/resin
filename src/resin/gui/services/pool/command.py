@@ -13,6 +13,7 @@ from typing import Any
 
 class SessionCommandType(BaseStrEnum):
     """
+    `BaseStrEnum`
     ```
     PREPARE = auto()
     EXECUTE = auto()

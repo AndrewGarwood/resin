@@ -153,6 +153,7 @@ class SessionWorker:
         self,
         timeout: float | None = None,
     ) -> None:
+        """ *`@note`* waits for `self._thread` to terminate """
         self._thread.join(timeout)
 
         if self._thread.is_alive():
@@ -161,17 +162,18 @@ class SessionWorker:
             )
 
     def _run(self) -> None:
+        """
+        *`@note`* this method is the target of `self._thread`
+        """
         try:
             with runtime.com_apartment():
                 self._run_in_com_apartment()
-
         except BaseException as error:
             if not self._ready.is_set():
                 self._startup_error = error
                 self._ready.set()
             else:
                 self._fatal_error = error
-
         finally:
             self._session = None
             self._current_transaction = None
@@ -272,3 +274,5 @@ class SessionWorker:
                 raise RuntimeError(
                     f"Unsupported session command: {command_type!r}"
                 )
+
+__all__ = ["SessionWorker"]

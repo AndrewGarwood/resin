@@ -118,11 +118,11 @@ def poll_until(
 
     deadline = time.monotonic() + timeout
     last_error: Exception | None = None
-
+    _MISSING = object()
     while True:
         try:
             result = operation()
-            if result is not None:
+            if result is not _MISSING:
                 return result
         except retry_on as e:
             last_error = e

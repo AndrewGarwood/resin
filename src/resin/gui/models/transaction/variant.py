@@ -19,6 +19,9 @@ class VariantOptionsDict(TypedDict):
 
 @dataclass
 class VariantOptions(Json.Serial[VariantOptionsDict]):
+    """ 
+    *`@extends`* `Json.Serial[VariantOptionsDict]`
+    """
     name: str
     """ name/label of transaction variant """
     created_by: str

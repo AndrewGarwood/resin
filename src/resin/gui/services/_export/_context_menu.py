@@ -5,10 +5,11 @@
 import time
 from typing import (Callable)
 from pyqi import (require, fs)
+from pyqi.models._result import Result
 from resin.gui.components.control import Button
 from resin.gui.components.grid_view import GridView
 from resin.gui.components.window import MainWindow
-from resin.gui.models import (ExportMethod, ExportResult, ExportOptions)
+from resin.gui.models import (ExportMethod, ExportOptions)
 from resin.gui.core import Session
 from resin.gui.models._export.result import ExportDetails
 from resin.gui.utils import (wait_for_component, gui_id as GUI)
@@ -28,7 +29,7 @@ def via_context_menu(
     save_dialog_options: NativeSaveDialogOptions 
         | Callable[..., NativeSaveDialogOptions] 
         | None = None
-) -> ExportResult:
+) -> Result[ExportDetails]:
     try:
         if (str(options.method) != ExportMethod.CONTEXT_MENU.value):
             raise ValueError(
@@ -78,13 +79,13 @@ def via_context_menu(
                 confirm_btn.press()
                 handle_export_dialog(session, options, watcher)
         saved = fs.wait_for_file_exists(options.file.path)
-        return ExportResult.ok(
+        return Result.ok(
             via_context_menu,
             data=ExportDetails(saved, row_count),
             message=options.success_message()
         )
     except Exception as e:
-        return ExportResult.fail(
+        return Result.fail(
             via_context_menu, 
             error=e, 
             message=options.failure_message()

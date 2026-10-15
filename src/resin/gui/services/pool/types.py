@@ -1,14 +1,12 @@
 """
 *`@file`* `gui/services/pool/types`
 """
-from enum import auto
 from dataclasses import dataclass
-from typing import (Any, Sequence, Protocol)
+from typing import (Any, Protocol)
 from pyqi import export
-from concurrent.futures import Future, wait, ALL_COMPLETED
+from concurrent.futures import Future
 from .assignment import TransactionAssignment
-from .session_locator import SessionLocator
-from resin.gui.core.session import (Session)
+from resin.gui.core import (Application, Connection)
 
 
 @dataclass(frozen=True, slots=True)
@@ -16,5 +14,27 @@ class PendingCommand:
     assignment: TransactionAssignment
     future: Future[Any]
 
-class SessionProvider(Protocol):
-    def __call__(self) -> Session: ...
+class SapGuiLauncher(Protocol):
+    """`Protocol` - callable that launches SAPGUI exe """
+    def __call__(self) -> None:
+        ...
+
+class ConnectionBootstrapper(Protocol):
+    """ `Protocol` - callable that accepts `Application` arg and returns `Connection` """
+    def __call__(
+        self,
+        application: Application,
+    ) -> Connection:
+        ...
+
+class ApplicationFactory(Protocol):
+    """`Protocol` - callable that returns `Application` """
+    def __call__(self) -> Application: ...
+
+
+__all__ = export(
+    PendingCommand, 
+    SapGuiLauncher,
+    ConnectionBootstrapper, 
+    ApplicationFactory
+)

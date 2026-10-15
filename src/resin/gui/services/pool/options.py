@@ -61,3 +61,5 @@ class SessionPoolOptions(Json.Serial[SessionPoolOptionsDict]):
                 e, 
                 received=Json.serialize(data)
             )) from e
+
+__all__ = export(SessionPoolOptions, SessionPoolOptionsDict)

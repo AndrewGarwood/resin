@@ -1,14 +1,11 @@
 """
 *`@file`* `gui/services/pool/session_binding`
+- combines locator with ownership policy
 """
-from enum import auto
 from dataclasses import dataclass
-from typing import (Any, Sequence, Protocol)
 from pyqi import export
-from concurrent.futures import Future, wait, ALL_COMPLETED
 
 from resin.gui.com.gateway import ComGateway
-from .assignment import TransactionAssignment
 from .session_locator import SessionLocator
 from resin.gui.core.session import (Session)
 
@@ -43,5 +40,7 @@ class SessionBinding:
     ) -> Session:
         return self.locator.resolve(gateway=gateway)
 
-    def __call__(self) -> Session:
-        return self.resolve()
+    def __call__(self, *, gateway: ComGateway | None = None) -> Session:
+        return self.resolve(gateway=gateway)
+
+__all__ = export(SessionBinding)

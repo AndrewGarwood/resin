@@ -5,7 +5,8 @@ from typing import Any, Callable
 
 from pywinauto import Desktop
 import time
-from .types import (WindowClass, DesktopBackend)
+from .types import (DesktopBackend)
+from .control.types import (Win32Window as WindowClass)
 from .debug import element_info
 from . import control
 

@@ -3,9 +3,10 @@
 """
 from pathlib import Path
 from dataclasses import dataclass, field
-from typing import (Optional)
+from typing import (Optional, Self)
 from pyqi import (export, Result, Telemetry)
-
+from pyqi.utils.module import HasDunderName
+from lute import LogMsg
 
 @dataclass
 class ExportDetails:
@@ -13,7 +14,13 @@ class ExportDetails:
     row_count: Optional[int]=None
 
 
-ExportResult = Result[ExportDetails]
+# ExportResult = Result[ExportDetails]
+# class ExportResult(Result[ExportDetails]): 
+#     """ 
+#     *`@extends`* `Result[ExportDetails]`
+#     """
+#     def __init__(self, *args, **kwargs):
+#         super().__init__(*args, **kwargs)
 
 @dataclass
 class CompletedExport(ExportDetails):
@@ -27,4 +34,4 @@ class CompletedExport(ExportDetails):
             tel=tel
         )
 
-__all__ = export(ExportDetails, ExportResult, CompletedExport)
+__all__ = export(ExportDetails, CompletedExport)

@@ -1,28 +1,15 @@
 """
 *`@file`* `gui/services/pool/utils`
 
-
-1. 
-```
-bindings = discover_session_bindings()
-
-with SessionPool(bindings) as pool:
-    results = pool.run(transactions)
-```
-2. 
-```
-bindings = provision_session_bindings(3)
-
-with SessionPool(bindings) as pool:
-    results = pool.run(transactions)
-```
-
 """
+import time
+
 from resin.gui.com import runtime
 from resin.gui.core.application import Application
 from .session_locator import (SessionLocator)
 from .session_binding import (SessionBinding)
-from pyqi import Array, require, export
+from pyqi import Array, require, export, fs
+from resin.gui.config import (AppManager)
 
 
 def discover_session_locators() -> list[SessionLocator]:
@@ -94,8 +81,14 @@ def provision_session_bindings(
         return bindings
 
 
+def default_sap_gui_launcher() -> None:
+    """ `fs.launch_executable(AppManager.exe())` """
+    _ = fs.launch_executable(AppManager.exe())
+    time.sleep(2)
+
 __all__ = export(
     provision_session_bindings, 
     discover_session_bindings, 
-    discover_session_locators
+    discover_session_locators,
+    default_sap_gui_launcher
 )

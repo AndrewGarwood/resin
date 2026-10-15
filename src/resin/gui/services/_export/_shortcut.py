@@ -4,8 +4,9 @@
 import time
 from typing import (Callable)
 from pyqi import (require, fs)
+from pyqi.models._result import Result
 from resin.gui.components.window import MainWindow
-from resin.gui.models import (ExportMethod, ExportResult, ExportOptions)
+from resin.gui.models import (ExportMethod, ExportOptions)
 from resin.gui.core import Session
 from resin.gui.models._export.result import ExportDetails
 from resin.gui.utils import (gui_id as GUI)
@@ -26,7 +27,7 @@ def via_keyboard_shortcut(
     save_dialog_options: NativeSaveDialogOptions 
         | Callable[..., NativeSaveDialogOptions] 
         | None = None
-) -> ExportResult:
+) -> Result[ExportDetails]:
     try:
         if (str(options.method) != ExportMethod.KEYBOARD_SHORTCUT.value):
             raise ValueError(
@@ -53,7 +54,7 @@ def via_keyboard_shortcut(
                 wnd.send_vkey(vkey)
                 handle_export_dialog(session, options, watcher)
         saved = fs.wait_for_file_exists(options.file.path)
-        return ExportResult.ok(
+        return Result.ok(
             via_keyboard_shortcut,
             data=ExportDetails(
                 saved, 
@@ -62,7 +63,7 @@ def via_keyboard_shortcut(
             message=options.success_message()
         )
     except Exception as e:
-        return ExportResult.fail(
+        return Result.fail(
             via_keyboard_shortcut, 
             error=e, 
             message=options.failure_message()

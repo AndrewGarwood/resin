@@ -9,7 +9,8 @@ from .exceptions import *
 from .control import *
 from .control import (
     is_available as control_is_available, 
-    generate_key as generate_control_key
+    generate_key as generate_control_key,
+    Win32Window as WindowClass
 )
 from .types import *
 from .watcher import *
