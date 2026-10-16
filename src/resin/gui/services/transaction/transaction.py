@@ -1,16 +1,16 @@
 """
 *`@file`* `gui/services/transaction/transaction`
 """
-
+from __future__ import annotations
 from pathlib import Path
 import threading, time
-from typing import (Any, Callable, Optional, Self)
+from typing import (Any, Callable, Optional, Self, Sequence)
 from pyqi.models import StageTransition, Telemetry, Flow
 from pyqi import (fs, require, dt, safe, export)
 from lute import LogMsg, get_logger, annotate
 from pyqi.models._result import Result
 from resin.gui.components.control import (TextField,  CheckBox)
-from resin.models._field import (resolve_field_dict, resolve_field_value, SentinelKey)
+from resin.models._field import (resolve_field_dict, resolve_field_value, SentinelKey, is_sentinel_value_dict)
 from resin.gui.models._export._method import ExportMethod
 from resin.gui.models._export.result import (ExportDetails, CompletedExport)
 from resin.gui.models.transaction import (
@@ -25,6 +25,7 @@ from resin.gui.core import (Session)
 from resin.gui.utils import (gui_id as GUI)
 from resin.gui.exceptions import (SapGuiError)
 import re
+import sys
 
 mlog = get_logger(__file__)
 
@@ -268,17 +269,21 @@ class Transaction(Flow[TransactionStage]):
         /,
     ) -> None:
         try:
-            # mlog.debug(LogMsg(
-            #     f"Before send vkey to get variant, {session.active_window.id=}"
-            # ))
             main_wnd = session.main_window
             main_wnd_id = main_wnd.id
+            mlog.debug(LogMsg(
+                f"Before send vkey to get variant", 
+                active_wnd_id=session.active_window.id,
+                main_wnd_id=main_wnd_id
+            ))
             main_wnd.send_vkey(GUI.VKey.GET_TXN_VARIANT)
             active_wnd = session.active_window
             active_wnd_id = active_wnd.id
-            # mlog.debug(LogMsg(
-            #     f"After sent vkey, {active_wnd.id=}"
-            # ))
+            mlog.debug(LogMsg(
+                f"After send vkey to get variant", 
+                active_wnd_id=active_wnd_id,
+                main_wnd_id=main_wnd_id
+            ))
             if (main_wnd_id == active_wnd_id):
                 raise SapGuiError(LogMsg(
                     f"Failed to open variant window from vkey",
@@ -302,9 +307,9 @@ class Transaction(Flow[TransactionStage]):
             ).set(variant.created_by)
             active_wnd.send_vkey(GUI.VKey.F8)
             time.sleep(0.5)
-            # mlog.debug(LogMsg(
-            #     f"After confirm variant, {session.active_window.id=}"
-            # ))
+            mlog.debug(LogMsg(
+                f"After confirm variant, {session.active_window.id=}"
+            ))
         except SapGuiError:
             raise
         except Exception as e:
@@ -326,7 +331,7 @@ class Transaction(Flow[TransactionStage]):
                     continue
                 stem = GUI.stem(field_id).lower()
                 field_cls = (
-                    TextField if stem.startswith(("txt", "ctxt", "okcd"))
+                    TextField if stem.startswith(("txt", "ctxt")) # , "okcd"
                     else CheckBox if stem.startswith("chk")
                     else None
                 )
@@ -345,7 +350,47 @@ class Transaction(Flow[TransactionStage]):
                     value=annotate(value),
                     status=safe.readattr(session, "status")
                 )) from e
+    def _set_field_value(self, session: Session, field_id: str, value: Any, /) -> None:
+        if (value == SentinelKey.RADIO_BUTTON_SELECT.value ):
+            session.select_radio_option(field_id)
+            return None
+        
+        stem = GUI.SapFieldIdStem.parse(field_id)
+        if (is_sentinel_value_dict(value) and value.get('sentinel') == SentinelKey.MULTIPLE_SELECTION.value):
+            
+            # or maybe can copy "\n".join(values) to clipboard and press the "copy from clipboard button"
+            if (not value): return None
+            raise NotImplementedError(f"Setting multiple values for field not yet supported")
+            field_parent = GUI.parent(field_id)
+            if stem.component_type != "ctxt":
+                raise ValueError(LogMsg(
+                    f"Setting multiple values is only supported for",
+                    "ComboTextField components (ctxt)",
+                    component_type=stem.component_type,
+                ))
+            if (not stem.base):
+                raise ValueError(LogMsg(
+                    f"SapFieldIdStem must have base identifier to set multiple values"
+                ))
+            _btn_id_stem = stem.selection_button(stem.base)
+            new_wnd_index = GUI.get_window_index(session.active_window.id)
+            mutli_select_btn = GUI.join(
+                GUI.replace_window(field_parent, new_wnd_index or 1), 
+                _btn_id_stem
+            )
+            session.press_button(mutli_select_btn)
 
+            raise NotImplementedError(f"Setting multiple values for field not yet supported")
+        field_cls = (
+            TextField if (stem.component_type in ("txt", "ctxt"))# , "okcd"
+            else CheckBox if stem.component_type == "chk"
+            else None
+        )
+        if (field_cls is None):
+            raise ValueError(LogMsg(
+                f"Unable to infer field_id's component class, or it is unsupported"
+            ))
+        session.set_field_value(field_id, value, field_cls=field_cls)
 
     def execute(self, session: Session, /) -> Any:
         self._transition(
@@ -557,7 +602,7 @@ def resolve_transaction_id( # TODO maybe should refine this
         if options.layout is not None 
         else None
     )
-    if options.export and options.export.file and options.export.file.path:
+    if (options.export and options.export.file and options.export.file.path):
         return (
             options.export.file.path.stem 
             if extract_id_from_path is None 

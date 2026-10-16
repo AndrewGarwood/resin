@@ -4,7 +4,7 @@
 
 from __future__ import annotations
 
-from collections.abc import Iterator
+from collections.abc import Callable, Iterator
 from typing import (TypeVar, Generic)
 import lute
 from pyqi import export
@@ -93,6 +93,7 @@ class Container(Component, FindMixin, Generic[ChildT]):
         code is running.
         """
         yield from self.children
+
 
     def exists(
         self,

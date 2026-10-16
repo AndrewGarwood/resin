@@ -35,7 +35,7 @@ class TransactionOptions(Json.Serial[TransactionOptionsDict]):
     export: ExportOptions | None = None
 
     @classmethod
-    def from_dict(cls, data: TransactionOptionsDict | dict[str, Any]) -> Self:
+    def from_dict(cls, data: TransactionOptionsDict | dict[str, Any], /) -> Self:
         try:
             _method_value = data.get('method', None)
             fields = data.get('fields', dict())

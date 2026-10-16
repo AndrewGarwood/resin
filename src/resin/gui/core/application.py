@@ -4,6 +4,7 @@ import logging
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Optional, Self
 import lute
+from lute.message import LogMsg
 from pyqi.validation import require
 from win32com.client import CDispatch
 from ..com.gateway import ComGateway
@@ -210,20 +211,22 @@ class Application:
             "runtime_id": runtime_id,
             "connection_string": connection_string,
         }
-
         provided = {
             name: value
             for name, value in criteria.items()
             if value is not None
         }
-
+        # mlog.debug(LogMsg(
+        #     f"@ Connection.find_connection", 
+        #     **criteria
+        # ))
         if not provided:
             raise ValueError(
                 "At least one connection search criterion is required"
             )
 
         for connection in self.connections:
-            matches: bool = True
+            _is_match: bool = True
             for name, expected in provided.items():
                 try:
                     if name == "connection_id":
@@ -231,12 +234,17 @@ class Application:
                     else:
                         actual = getattr(connection, name)
                 except (AttributeError, SapComError):
-                    matches = False
+                    _is_match = False
                     break
+
+                # mlog.debug(LogMsg(
+                #     f"criteria='{name}', expected='{expected}'",
+                #     f"actual='{actual}' → {actual == expected=}"
+                # ))
                 if actual != expected:
-                    matches = False
+                    _is_match = False
                     break
-            if matches:
+            if _is_match:
                 return connection
         return None
 

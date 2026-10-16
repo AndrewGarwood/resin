@@ -35,8 +35,8 @@ def wait_for_session_idle(session: Any, /, timeout: float = 60.0, poll: float = 
 
 def _session_key(session: Any, /) -> str:
     """ ***@deprecated*** """
-    conn_id = getattr(session, "_conn_id", None)
-    session_id = getattr(session, "_session_id", None)
+    conn_id = getattr(session, "id", None)
+    session_id = getattr(session, "id", None)
     if (not conn_id or not session_id):
         raise RuntimeError(f"Cannot build SAP session lock key. {conn_id=}, {session_id=}")
     return f"{conn_id}:{session_id}"

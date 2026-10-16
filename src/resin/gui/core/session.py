@@ -531,11 +531,11 @@ class Session(FindMixin):
         poll_interval: float=0.1
     ) -> Any:
         """ 
-        *`@returns`* `Function.Deferred(session.find, component_id, _raise=False, component_cls=component_cls)` 
+        *`@returns`* `Function.Deferred(session.find, component_id, _raise=_raise, component_cls=component_cls)` 
         if component is found within deadline 
         """
         return runtime.poll_until(
-            Function.Deferred(self.find, component_id, _raise=False, component_cls=component_cls), 
+            Function.Deferred(self.find, component_id, _raise=_raise, component_cls=component_cls), 
             timeout=timeout, 
             poll_interval=poll_interval, 
             description=f"session.find({component_id})",

@@ -1,35 +1,25 @@
 """
 *`@files`* `gui/services/_export/utils`
 """
-
-from pathlib import Path
 import time
 from typing import Callable
-
 from pyqi import Array, export
 from pywinauto import Application
-from resin.utils.winauto import (dump_class, DesktopBackend, wait_for_class, WindowClass, AutomationError)
-from resin.gui.components.window import FrameWindow
+from resin.utils.winauto import (
+    dump_class, DesktopBackend, 
+    wait_for_class, WindowClass, AutomationError
+)
 from resin.gui.models import (ExportOptions, LayoutSelector)
 from resin.gui.components import (GridView)
 from resin.gui.core.session import (Session)
 from resin.gui.utils import (gui_id as GUI, wait_for_component)
 from resin.gui.exceptions import SapGuiError
-
-from .watcher import (NativeSaveDialogWatcher)
 from .types import (NativeSaveDialogOptions)
 
 import warnings
 from lute import (LogMsg, get_logger)
 mlog = get_logger(__file__)
 
-"""
-        save_options = (
-            NativeSaveDialogOptions() if save_dialog_options is None
-            else save_dialog_options if isinstance(save_dialog_options, NativeSaveDialogOptions) 
-            else save_dialog_options()
-        )
-"""
 def resolve_native_save_options(
     save_options: NativeSaveDialogOptions 
         | Callable[..., NativeSaveDialogOptions] 

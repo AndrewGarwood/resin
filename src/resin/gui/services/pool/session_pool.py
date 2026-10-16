@@ -65,21 +65,6 @@ class SessionPool():
         self.options = options or SessionPoolOptions()
         self._started = False
         self._closed = False
-    
-    @classmethod
-    def provisioned(
-        cls, 
-        provisioner: SessionProvisioner, 
-        /, 
-        *, 
-        options: SessionPoolOptions | None=None
-    ) -> tuple[Self, SessionProvisioningResult]:
-        result = provisioner.provision()
-        pool = cls(
-            result.bindings,
-            options
-        )
-        return (pool, result)
 
     @classmethod
     def from_provision_result(

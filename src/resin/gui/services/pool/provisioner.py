@@ -262,10 +262,13 @@ class SessionProvisioner:
             )
 
         if options.connection.description is not None:
-            connection = application.open_connection(
-                options.connection.description, 
-                raise_on_error=False
+            connection = application.find_connection(
+                description=options.connection.description
             )
+            # connection = application.open_connection(
+            #     options.connection.description, 
+            #     raise_on_error=False
+            # )
             if connection is not None:
                 return connection
         if options.connection.string is not None:

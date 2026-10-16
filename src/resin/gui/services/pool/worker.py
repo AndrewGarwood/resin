@@ -168,12 +168,12 @@ class SessionWorker:
         try:
             with runtime.com_apartment():
                 self._run_in_com_apartment()
-        except BaseException as error:
+        except BaseException as e:
             if not self._ready.is_set():
-                self._startup_error = error
+                self._startup_error = e
                 self._ready.set()
             else:
-                self._fatal_error = error
+                self._fatal_error = e
         finally:
             self._session = None
             self._current_transaction = None
@@ -193,8 +193,8 @@ class SessionWorker:
                 session.id,
             )
             self._session = session
-        except BaseException as error:
-            self._startup_error = error
+        except BaseException as e:
+            self._startup_error = e
             self._ready.set()
             return
         self._ready.set()
