@@ -7,6 +7,14 @@ from pyqi import (String, Json, export)
 from lute import LogMsg
 
 class ExportMethod(String.BaseEnum):
+    """
+    ```
+    NONE = "none"
+    CONTEXT_MENU = "context_menu"
+    TOOLBAR_BUTTON = "toolbar_button"
+    KEYBOARD_SHORTCUT = "keyboard_shortcut"
+    ```
+    """
     NONE = "none"
     """ → do not export the Transaction data"""
     CONTEXT_MENU = "context_menu"

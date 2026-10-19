@@ -11,7 +11,7 @@ from lute import LogMsg
 class FileOptionsDict(TypedDict, total=False):
     outdir: str
     filename: str
-    outpath: str
+    path: str
     ref_date: str | Literal['none', 'today']
     how_apply_ref: str | Literal['auto']
 
@@ -20,7 +20,7 @@ class FileOptions(Json.Serial[FileOptionsDict]):
     """
     *`@extends`* `Json.Serial[FileOptionsDict]`
     ```
-    - @property def outpath(self) -> Path: ...
+    - @property def path(self) -> Path: ...
     - @property def outdir(self) -> Path: ...
     - @property def filename(self) -> str: ...
     - @property def ref_date(self) -> Optional[date]: ...
@@ -30,18 +30,18 @@ class FileOptions(Json.Serial[FileOptionsDict]):
     _ref_date: Optional[date] = None
     def __init__(
         self,
-        outpath: Optional[fs.StrPath]=None,    
+        path: Optional[fs.StrPath]=None,    
         outdir: Optional[fs.StrPath]=None,    
         filename: Optional[str]=None,
         ref_date: dt.DateValue | Literal['none', 'today'] | None = None,
         how_apply_ref: fs.RenameOperation | Literal['auto'] = fs.RenameOperation.REPLACE
     ):
-        if (outpath and (outdir or filename)):
+        if (path and (outdir or filename)):
             raise ValueError(LogMsg(
                 "Unsupported FileOptions argument(s)",
                 "Expected: 1. outpath or 2. outdir and filename",
                 "Received:",
-                outpath=str(outpath),
+                outpath=str(path),
                 outdir=str(outdir),
                 filename=str(filename)
             ))
@@ -50,16 +50,15 @@ class FileOptions(Json.Serial[FileOptionsDict]):
             else dt.today() if ref_date == 'today' 
             else dt.resolve_date(ref_date)
         )
-        path: Path | None = None
-        if (outpath):
-            path = fs.to_path(outpath)
+        if (path):
+            path = fs.to_path(path)
         elif (outdir):
             path = fs.to_path(outdir).joinpath(filename or 'export.xlsx')
         else:
             raise RuntimeError(LogMsg(
                 "Invalid arguments for FileOptions constructor",
                 "Received:",
-                outpath=str(outpath),
+                outpath=str(path),
                 outdir=str(outdir),
                 filename=str(filename)
             ))
@@ -110,7 +109,7 @@ class FileOptions(Json.Serial[FileOptionsDict]):
             if (_how and _how != 'auto'): 
                 _how = fs.RenameOperation.resolve(_how)
             return cls(
-                outpath=data.get("outpath"),
+                path=data.get("path"),
                 outdir=data.get("outdir"),
                 filename=data.get("filename"),
                 ref_date=data.get("ref_date"),
@@ -128,7 +127,7 @@ class FileOptions(Json.Serial[FileOptionsDict]):
                 self._ref_date.isoformat() if self._ref_date is not None 
                 else 'none'
             ),
-            "outpath": str(self.path),
+            "path": str(self.path),
             "filename": self.name,
             "outdir": str(self.dir)
         }

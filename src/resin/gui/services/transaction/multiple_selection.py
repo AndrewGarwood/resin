@@ -56,6 +56,7 @@ class ValueRange(Json.Serial[ValueRangeDict], Generic[VT]):
     @classmethod
     def from_dict(cls, data: ValueRangeDict | dict[str, Any]) -> Self:
         try:
+            raise NotImplementedError
             lower_val = data['lower']
             if (is_sentinel_value_dict(lower_val) 
                 and SENTINEL_FUNCTION_REGISTRY.is_registered(lower_val['sentinel'])

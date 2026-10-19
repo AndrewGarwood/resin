@@ -46,8 +46,8 @@ class ExecutionType(String.BaseEnum):
     ```
     """
     STANDARD = "standard"
-    ASYNC = "async"
-
-    # this might be something that some SAP super user sets up at company
+    ASYNC = "async" # this might be something that some SAP super user sets up at company
+    CUSTOM = "custom" # assigned by script when pass execute_fn to Transaction __init__
+    
 
 __all__ = export(TransactionStage, ExecutionType)
