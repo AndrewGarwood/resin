@@ -12,8 +12,6 @@ class FileOptionsDict(TypedDict, total=False):
     outdir: str
     filename: str
     path: str
-    ref_date: str | Literal['none', 'today']
-    how_apply_ref: str | Literal['auto']
 
 @dataclass
 class FileOptions(Json.Serial[FileOptionsDict]):
@@ -23,54 +21,54 @@ class FileOptions(Json.Serial[FileOptionsDict]):
     - @property def path(self) -> Path: ...
     - @property def outdir(self) -> Path: ...
     - @property def filename(self) -> str: ...
-    - @property def ref_date(self) -> Optional[date]: ...
     ```
     """
     _path: Path
-    _ref_date: Optional[date] = None
     def __init__(
         self,
         path: Optional[fs.StrPath]=None,    
         outdir: Optional[fs.StrPath]=None,    
         filename: Optional[str]=None,
-        ref_date: dt.DateValue | Literal['none', 'today'] | None = None,
-        how_apply_ref: fs.RenameOperation | Literal['auto'] = fs.RenameOperation.REPLACE
     ):
-        if (path and (outdir or filename)):
-            raise ValueError(LogMsg(
-                "Unsupported FileOptions argument(s)",
-                "Expected: 1. outpath or 2. outdir and filename",
+        if (path and not outdir and not filename):
+            path = fs.to_path(path)
+        elif (outdir):
+            path = fs.to_path(outdir).joinpath(filename or f'export.xlsx')
+        else:
+            raise RuntimeError(LogMsg(
+                "Invalid arguments for FileOptions constructor",
+                "Expected: 1. path or 2. outdir and filename",
                 "Received:",
-                outpath=str(path),
+                path=str(path),
                 outdir=str(outdir),
                 filename=str(filename)
             ))
+        self._path = path
+
+    def formatted_path(
+        self, 
+        *args,
+        ref_date: dt.DateValue | Literal['none', 'today'] | None = None,
+        how_apply_ref: fs.RenameOperation | Literal['auto'] = fs.RenameOperation.REPLACE,
+        dt_fmt: str=dt.FormatString.YMD_DOT, 
+        **kwargs
+    ) -> Path:
+        """
+        - `if ref_date` resolves to `date`, applies it to construct modifed `pathstr` from `self.path.parent` `self.path.name`
+        - then applies `pathstr.format(*args, **kwargs)`
+        """
+        pathstr = str(self.path)
         ref: date | None = (
             None if (ref_date is None or ref_date == 'none') 
             else dt.today() if ref_date == 'today' 
             else dt.resolve_date(ref_date)
         )
-        if (path):
-            path = fs.to_path(path)
-        elif (outdir):
-            path = fs.to_path(outdir).joinpath(filename or 'export.xlsx')
-        else:
-            raise RuntimeError(LogMsg(
-                "Invalid arguments for FileOptions constructor",
-                "Received:",
-                outpath=str(path),
-                outdir=str(outdir),
-                filename=str(filename)
-            ))
         if (ref is not None):
-            path = path.with_name(fs.dated_filename(
-                path.stem, 
-                ext=path.suffix, 
-                ref=ref,
-                how=how_apply_ref
-            ))
-        self._ref_date = ref
-        self._path = path
+            pathdir = dt.resolve_optional_date_code(ref, str(self.path.parent))
+            namestr = fs.dated_filename(self.path.name, ref=ref, how=how_apply_ref, fmt=dt_fmt)
+            pathstr = "\\".join((pathdir, namestr))
+        pathstr = pathstr.format(*args, **kwargs)
+        return Path(pathstr)
     
     @property
     def path(self) -> Path:
@@ -95,15 +93,8 @@ class FileOptions(Json.Serial[FileOptionsDict]):
             require.non_empty_string(other, "FileOptions.name")
         )
 
-    @property
-    def ref_date(self) -> date | None: 
-        return self._ref_date
-    @ref_date.setter
-    def ref_date(self, other: date | None, /):
-        self._ref_date = other
-
     @classmethod
-    def from_dict(cls, data: FileOptionsDict | dict[str, Any]) -> Self:
+    def from_dict(cls, data: FileOptionsDict | dict[str, Any], /) -> Self:
         try:
             _how = data.get('how_apply_ref')
             if (_how and _how != 'auto'): 
@@ -112,8 +103,6 @@ class FileOptions(Json.Serial[FileOptionsDict]):
                 path=data.get("path"),
                 outdir=data.get("outdir"),
                 filename=data.get("filename"),
-                ref_date=data.get("ref_date"),
-                how_apply_ref=(_how or 'auto')
             )
         except Exception as e:
             raise RuntimeError(LogMsg.err(
@@ -123,10 +112,6 @@ class FileOptions(Json.Serial[FileOptionsDict]):
 
     def to_dict(self) -> Json.JsonDict[FileOptionsDict]:
         return {
-            "ref_date": (
-                self._ref_date.isoformat() if self._ref_date is not None 
-                else 'none'
-            ),
             "path": str(self.path),
             "filename": self.name,
             "outdir": str(self.dir)

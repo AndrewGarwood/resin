@@ -22,6 +22,9 @@ class ExportOptionsDict(TypedDict, total=False):
 
 @dataclass
 class ExportOptions(Json.Serial[ExportOptionsDict]):
+    """
+    *`@extends`* `Json.Serial[ExportOptionsDict]`
+    """
     method: ExportMethod = ExportMethod.NONE
     layout: LayoutSelector | None = None
     invoke: InvokeMethodOptions = field(default_factory=InvokeMethodOptions)

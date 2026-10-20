@@ -70,6 +70,12 @@ class SessionProvisioner:
         launcher: SapGuiLauncher | None = None,
         connection_bootstrapper: ConnectionBootstrapper | None = None
     ):
+        """
+        - *`@param`* `launcher (SapGuiLauncher | None)` 
+            - callable that launches the SAPGUI executable
+        - *`@param`* `connection_bootstrapper (ConnectionBootstrapper | None)` 
+            - callable that creates a `Connection` from an `Application` instance       
+        """
         self.options = options
         self._gateway_factory = gateway_factory
         self._launcher = launcher

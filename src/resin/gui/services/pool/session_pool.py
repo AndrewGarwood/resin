@@ -288,12 +288,16 @@ class SessionPool():
         self._require_started()
         txns = list(resolve_arbitrary(transactions))
         self.validate_transactions(txns)
+        batches = Array.partition(txns, self.size)
         results: list[Result[TransactionDetails]] = []
-        for batch_start in range(0, len(txns), self.size):
-            batch = txns[batch_start: batch_start + self.size]
-            assignments = assign_batch(batch, self._workers)
-            self._run_batch(assignments)
+        for batch in batches:
+            self._run_batch(assign_batch(batch, self._workers))
             results.extend(Array.map(batch, lambda t: t.get_result()))
+        # for batch_start in range(0, len(txns), self.size):
+        #     batch = txns[batch_start: batch_start + self.size]
+        #     assignments = assign_batch(batch, self._workers)
+        #     self._run_batch(assignments)
+        #     results.extend(Array.map(batch, lambda t: t.get_result()))
 
         return results
 

@@ -1,8 +1,8 @@
 """
 *`@file`* `gui/models/transaction/options`
 """
-from dataclasses import dataclass, field
-from typing import (Self, TypedDict, Required, Any)
+from dataclasses import dataclass, field, replace
+from typing import (Mapping, Self, TypedDict, Required, Any)
 from pyqi import (Json, export)
 from lute import LogMsg
 
@@ -58,6 +58,19 @@ class TransactionOptions(Json.Serial[TransactionOptionsDict]):
         except Exception as e:
             raise RuntimeError(LogMsg.err(e, received=Json.serialize(data))) from e
 
-
+    def with_fields(
+        self, 
+        fields: Mapping[str, Any], 
+        /, 
+        copy_existing: bool=False
+    ) -> Self:
+        """
+        - *`@param`* `fields (Mapping[str, Any])` - entries that will be in returned `TransactionOptions.fields`
+        - *`@param`* `copy_existing (bool)` - whether returned 
+        `TransactionOptions.fields` will only contain entries in `fields` param or if it will be an updated copy of `self.fields` 
+        """
+        _result_fields: dict[str, Any] = {} if not copy_existing else { **self.fields }
+        _result_fields.update(fields)
+        return replace(self, fields=_result_fields)
 
 __all__ = export(TransactionOptions, TransactionOptionsDict)

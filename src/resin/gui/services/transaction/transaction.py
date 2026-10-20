@@ -232,7 +232,7 @@ class Transaction(Flow[TransactionStage]):
     # Configuration
     # =========================================================================
     def set_field(self, key: str, value: Any, /) -> None:
-        """ if want to overwrite an entry in `self.fields` """
+        """ if want to add/overwrite an entry in `self.fields` """
         key = require.non_empty_string(key, "Field Id")
         self.fields[key] = resolve_field_value(value)
     
@@ -542,7 +542,7 @@ class Transaction(Flow[TransactionStage]):
 
     def _set_no_export_result(self) -> None:
         self._export_result = Result(
-            Transaction.export,
+            f"Transaction(id={self.id}).export",
             ExportDetails(None, None),
             success=True,
             message=LogMsg(
@@ -578,7 +578,7 @@ class Transaction(Flow[TransactionStage]):
         )
 
 
-def resolve_transaction_id( # TODO maybe should refine this
+def resolve_transaction_id( # TODO should refine this
     txn: Transaction | TransactionOptions, 
     /, 
     _id: fs.StrPath | None=None,

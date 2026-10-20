@@ -8,6 +8,7 @@ independently pick up another transaction as soon as they finish."
 """
 from .worker import (SessionWorker)
 from ..transaction import (Transaction)
+from typing import Sequence
 from dataclasses import dataclass
 
 
@@ -17,8 +18,8 @@ class TransactionAssignment:
     worker: SessionWorker
 
 def assign_batch(
-    transactions: list[Transaction],
-    workers: list[SessionWorker],
+    transactions: Sequence[Transaction],
+    workers: Sequence[SessionWorker],
     /,
 ) -> list[TransactionAssignment]:
     if len(transactions) > len(workers):

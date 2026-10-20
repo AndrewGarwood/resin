@@ -55,7 +55,7 @@ _STANDARD_BODY_PATTERN = re.compile(
         (?P<base>{_IDENTIFIER_PATTERN})
         (?:
             -
-            (?P<field_variant>{_IDENTIFIER_PATTERN})
+            (?P<variant>{_IDENTIFIER_PATTERN})
         )?
     )?
     $
@@ -72,7 +72,7 @@ _SELECTION_BUTTON_BODY_PATTERN = re.compile(
     _%_APP_%
     (?:
         -
-        (?P<field_variant>{_IDENTIFIER_PATTERN})
+        (?P<variant>{_IDENTIFIER_PATTERN})
     )?
     $
     """,
@@ -87,7 +87,7 @@ class SapFieldIdStem:
     - every part except `component_type` is optional 
     
     `component_id = 'app/ses[i]/wnd[j]/path/to/{field_id_stem}'`
-    - `field_id_stem` = `'<component_type><base>-<field_variant>[<index>]'`
+    - `field_id_stem` = `'<component_type><base>-<variant>[<index>]'`
 
     example stems:
     - `"btn%_BWART_%_APP_%-VALU_PUSH"`
@@ -96,7 +96,7 @@ class SapFieldIdStem:
     """
     component_type: str
     base: str | None = None
-    field_variant: str | None = None
+    variant: str | None = None
     is_selection_button: bool = False
     grid_x: int | None = None
     grid_y: int | None = None
@@ -142,7 +142,7 @@ class SapFieldIdStem:
 
         for name, value in (
             ("base", self.base),
-            ("field_variant", self.field_variant),
+            ("variant", self.variant),
         ):
             if value is not None and re.fullmatch(
                 _IDENTIFIER_PATTERN,
@@ -194,7 +194,7 @@ class SapFieldIdStem:
         if selection_match is not None:
             is_selection_button = True
             base = selection_match["base"]
-            field_variant = selection_match["field_variant"]
+            variant = selection_match["variant"]
         else:
             standard_match = _STANDARD_BODY_PATTERN.fullmatch(body)
             if standard_match is None:
@@ -204,7 +204,7 @@ class SapFieldIdStem:
                 )
             is_selection_button = False
             base = standard_match["base"]
-            field_variant = standard_match["field_variant"]
+            variant = standard_match["variant"]
         if second_index is not None:
             grid_x = int(first_index)
             grid_y = int(second_index)
@@ -220,7 +220,7 @@ class SapFieldIdStem:
         return cls(
             component_type=component_type,
             base=base,
-            field_variant=field_variant,
+            variant=variant,
             is_selection_button=is_selection_button,
             grid_x=grid_x,
             grid_y=grid_y,
@@ -243,8 +243,8 @@ class SapFieldIdStem:
                 parts.append(self.wrap_selection_button_base(self.base))
             else:
                 parts.append(self.base)
-        if self.field_variant is not None:
-            parts.append(f"-{self.field_variant}")
+        if self.variant is not None:
+            parts.append(f"-{self.variant}")
         return "".join(parts)
 
 
