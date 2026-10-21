@@ -31,7 +31,7 @@ def tbar(window_index: int | None = 0, toolbar_index: int = 0, /) -> str:
     )
 
 def sbar(window_index: int | None=0, /) -> str:
-    """ e.g. `'wnd[0]/sbar'` """
+    """ `'wnd[0]/sbar'`, `'sbar'` """
     return f"{wnd(window_index)}/sbar" if window_index is not None else "sbar"
 
 def usr(window: int | str | None=None, /) -> str:

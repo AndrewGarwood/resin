@@ -13,7 +13,8 @@ from .services import (
     ExportService, 
     SessionPoolService, 
     TransactionService, 
-    Transaction
+    Transaction,
+    build_result_dict
 )
 from .services.pool import *
 from .services._export import *

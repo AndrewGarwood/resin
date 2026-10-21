@@ -3,36 +3,44 @@
 """
 from dataclasses import dataclass, field, replace
 from typing import (Mapping, Self, TypedDict, Required, Any)
-from pyqi import (Json, export)
+from pyqi import (Json, export, Array)
 from lute import LogMsg
 
 from .enums import (ExecutionType)
 from .layout import (LayoutOptions, LayoutOptionsDict)
 from .variant import (VariantOptions, VariantOptionsDict)
+from .multiscreen import (ScreenFieldSelectionDict, ScreenFieldSelection)
 from .._export import (ExportOptions, ExportOptionsDict)
 
 
 class TransactionOptionsDict(TypedDict, total=False):
     code: Required[str]
+    id: str
     variant: VariantOptionsDict
     layout: LayoutOptionsDict
     export: ExportOptionsDict
     method: ExecutionType | str
     fields: dict[str, Any]
-    id: str
+    screens: list[ScreenFieldSelectionDict]
+
 
 
 @dataclass
 class TransactionOptions(Json.Serial[TransactionOptionsDict]):
     """
+    *`@extends`* `Json.Serial[TransactionOptionsDict]`
     """
     code: str
     _id: str | None = None
     method: ExecutionType = ExecutionType.STANDARD
     fields: dict[str, Any] = field(default_factory=dict)
+    """ 
+    - these are fields that can be populated on the first screen when starting a transaction
+    """
     layout: LayoutOptions | None = None
     variant: VariantOptions | None = None
     export: ExportOptions | None = None
+    screens: list[ScreenFieldSelection] = field(default_factory=list)
 
     @classmethod
     def from_dict(cls, data: TransactionOptionsDict | dict[str, Any], /) -> Self:
@@ -48,12 +56,16 @@ class TransactionOptions(Json.Serial[TransactionOptionsDict]):
             _export = data.get('export', None)
             return cls(
                 code=data['code'],
-                method=ExecutionType.resolve(_method_value) if _method_value else ExecutionType.STANDARD,
+                method=(
+                    ExecutionType.resolve(_method_value) if _method_value 
+                    else ExecutionType.STANDARD
+                ),
                 fields=fields,
                 layout=LayoutOptions.from_dict(_layout) if _layout else None,
                 variant=VariantOptions.from_dict(_variant) if _variant else None,
                 export=ExportOptions.from_dict(_export) if _export else None,
-                _id=data.get('id', None)
+                _id=data.get('id', None),
+                screens=Array.map(data.get('screens', []), ScreenFieldSelection.from_dict)
             )
         except Exception as e:
             raise RuntimeError(LogMsg.err(e, received=Json.serialize(data))) from e
@@ -71,6 +83,6 @@ class TransactionOptions(Json.Serial[TransactionOptionsDict]):
         """
         _result_fields: dict[str, Any] = {} if not copy_existing else { **self.fields }
         _result_fields.update(fields)
-        return replace(self, fields=_result_fields)
+        return replace(self, fields=_result_fields, screens=list(self.screens))
 
 __all__ = export(TransactionOptions, TransactionOptionsDict)

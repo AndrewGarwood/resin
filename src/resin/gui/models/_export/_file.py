@@ -10,7 +10,7 @@ from lute import LogMsg
 
 class FileOptionsDict(TypedDict, total=False):
     outdir: str
-    filename: str
+    name: str
     path: str
 
 @dataclass
@@ -20,7 +20,7 @@ class FileOptions(Json.Serial[FileOptionsDict]):
     ```
     - @property def path(self) -> Path: ...
     - @property def outdir(self) -> Path: ...
-    - @property def filename(self) -> str: ...
+    - @property def name(self) -> str: ...
     ```
     """
     _path: Path
@@ -28,20 +28,20 @@ class FileOptions(Json.Serial[FileOptionsDict]):
         self,
         path: Optional[fs.StrPath]=None,    
         outdir: Optional[fs.StrPath]=None,    
-        filename: Optional[str]=None,
+        name: Optional[str]=None,
     ):
-        if (path and not outdir and not filename):
+        if (path and not outdir and not name):
             path = fs.to_path(path)
         elif (outdir):
-            path = fs.to_path(outdir).joinpath(filename or f'export.xlsx')
+            path = fs.to_path(outdir).joinpath(name or f'export.xlsx')
         else:
             raise RuntimeError(LogMsg(
                 "Invalid arguments for FileOptions constructor",
-                "Expected: 1. path or 2. outdir and filename",
+                "Expected: 1. path or 2. outdir and name",
                 "Received:",
                 path=str(path),
                 outdir=str(outdir),
-                filename=str(filename)
+                name=str(name)
             ))
         self._path = path
 
@@ -102,7 +102,7 @@ class FileOptions(Json.Serial[FileOptionsDict]):
             return cls(
                 path=data.get("path"),
                 outdir=data.get("outdir"),
-                filename=data.get("filename"),
+                name=data.get("name"),
             )
         except Exception as e:
             raise RuntimeError(LogMsg.err(
@@ -113,7 +113,7 @@ class FileOptions(Json.Serial[FileOptionsDict]):
     def to_dict(self) -> Json.JsonDict[FileOptionsDict]:
         return {
             "path": str(self.path),
-            "filename": self.name,
+            "name": self.name,
             "outdir": str(self.dir)
         }
 

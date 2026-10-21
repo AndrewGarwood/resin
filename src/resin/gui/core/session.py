@@ -18,7 +18,7 @@ from ..exceptions import (
     SapGuiError,
     SapGuiStatusError
 )
-from pyqi import require, Function
+from pyqi import (require, Function, safe)
 from lute import LogMsg
 from resin.gui.com import runtime
 from resin.gui.utils import (gui_id as GUI, SupportsSet)
@@ -193,7 +193,11 @@ class Session(FindMixin):
     @property
     def statusbar(self) -> Statusbar:
         from ..components.status_bar import Statusbar
-        return self.find("wnd[0]/sbar", component_cls=Statusbar, _raise=True)
+        return self.find(
+            GUI.sbar(0),
+            component_cls=Statusbar, 
+            _raise=True
+        )
 
     @property
     def status(self) -> str:
@@ -205,6 +209,11 @@ class Session(FindMixin):
                 f"Failed to read the status bar for session",
                 session_id=repr(self.id)
             )) from e
+
+    def get_status(self) -> str:
+        """ *`@returns`* `safe.readattr(self, "status")` """
+        return safe.readattr(self, "status")
+
 
     def press_button(
         self,

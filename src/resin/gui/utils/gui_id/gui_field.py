@@ -2,11 +2,9 @@
 *`@file`* `gui/utils/gui_id/gui_field`
 """
 from __future__ import annotations
-from collections.abc import Iterable
 from dataclasses import dataclass
 from typing import (Any, Self)
 from pyqi import (export)
-from resin.models._field import resolve_field_value
 import re
 
 # Uppercase SAP identifier segment:

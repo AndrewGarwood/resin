@@ -6,10 +6,11 @@ from pathlib import Path
 import threading, time
 from typing import (Any, Callable, Optional, Self, Sequence)
 from pyqi.models import StageTransition, Telemetry, Flow
-from pyqi import (fs, require, dt, safe, export)
+from pyqi import (fs, require, dt, safe, export, Array)
 from lute import LogMsg, get_logger, annotate
 from pyqi.models._result import Result
 from resin.gui.components.control import (TextField,  CheckBox)
+from resin.gui.models.transaction.multiscreen import ScreenStep
 from resin.models._field import (resolve_field_dict, resolve_field_value, SentinelKey, is_sentinel_value_dict)
 from resin.gui.models._export._method import ExportMethod
 from resin.gui.models._export.result import (ExportDetails, CompletedExport)
@@ -40,8 +41,9 @@ class Transaction(Flow[TransactionStage]):
     code: str
     options: TransactionOptions
     fields: dict[str, Any]
-    """ 
-    resolved field entries. 
+    """
+    - these are fields that can be populated on the first screen when starting a transaction
+    - field entries resolved in `__init__`. 
     - can view `self.options.fields` for original/unresovled field dictionary 
     """
     execute_fn: Callable[[Self, Session], Any] | None
@@ -68,6 +70,10 @@ class Transaction(Flow[TransactionStage]):
         self.method = ExecutionType.resolve(options.method)
         self.export_options = options.export
         self.variant = options.variant
+        self.screens = Array.map(
+            options.screens, 
+            lambda s: s.with_fields(resolve_field_dict(s.fields))
+        )
         self.id = resolve_transaction_id(options, _id, extract_id_from_path)
 
         if (options.layout and options.layout.field_id not in self.fields):
@@ -81,6 +87,7 @@ class Transaction(Flow[TransactionStage]):
         self._export_result: Result[ExportDetails] | None = None
         self._state_lock = threading.RLock()
         self._state_changed = threading.Condition(self._state_lock)
+        self.last_status: str | None = None
 
     @property
     def id(self) -> str:
@@ -173,6 +180,7 @@ class Transaction(Flow[TransactionStage]):
 
     def _fail(self, error: BaseException, /) -> None:
         with self._state_changed:
+            error.add_note(self.last_status or "<last_status unavailable>")
             previous = self._stage
             self._failure = error
             self._stage = TransactionStage.FAILED
@@ -249,18 +257,62 @@ class Transaction(Flow[TransactionStage]):
 
     def populate_selection_screen(self, session: Session, /) -> None:
         self._transition(TransactionStage.OPENING, TransactionStage.POPULATING_SELECTION)
-        if (self.variant):
-            self._load_variant(session, self.variant)
-        if (self.fields):
-            self._load_fields(session)
-        if (self.strict and (not self.variant and not self.fields)):
+        if (self.strict and not self.has_nontrivial_field_selection()):
             raise RuntimeError(LogMsg(
                 f"No variant or fields available to populate transaction parameters",
             ))
+        if (self.variant):
+            self._load_variant(session, self.variant)
+        if (self.fields):
+            self._load_fields(session, self.fields)
+        if (self.screens):
+            self._load_screen_fields(session)
         self._transition(
             TransactionStage.POPULATING_SELECTION, 
             TransactionStage.READY_TO_EXECUTE
         )
+
+    def read_status(self, session: Session, /):
+        _status = session.get_status()
+        self.last_status = _status
+        return _status
+
+    def has_nontrivial_field_selection(self) -> bool:
+        """
+        *`@returns`* `bool` whether one of (self.fields, self.variant, self.screens) 
+        would result in manipulating parameters of the transaction in SAPGUI
+        """
+        return bool(
+            self.variant 
+            or self.fields 
+            or Array.some(self.screens, lambda s: bool(s.fields))
+        )
+
+    def _load_screen_fields(self, session: Session,/):
+        try:
+            for s in self.screens:
+                self._handle_screen_step(session, s.step_in)
+                if (s.fields): 
+                    self._load_fields(session, s.fields)
+                if (not s.step_out): 
+                    continue
+                self._handle_screen_step(session, s.step_out)
+        except Exception as e:
+            raise RuntimeError(LogMsg.err(
+                e,
+                f"Failed to enter fields on Transaction screen(s)",
+                screens=Array.map(self.screens, lambda k: k.to_dict()),
+                status=self.read_status(session)
+            )) from e
+
+    def _handle_screen_step(self, session: Session, step: ScreenStep, /) -> None:
+        if step.vkey is not None:
+            session.active_window.send_vkey(step.vkey)
+        elif step.button is not None:
+            session.press_button(step.button)
+        else: # unreachable b/c post init should throw
+            raise RuntimeError(LogMsg(f"Invalid ScreenStep object"))
+
     
     def _load_variant(
         self, 
@@ -318,11 +370,12 @@ class Transaction(Flow[TransactionStage]):
                 f"Failed to load transaction variant",
                 txn_id=self.id,
                 txn_code=self.code,
-                variant=str(self.variant)
+                variant=str(self.variant),
+                status=self.read_status(session)
             )) from e
         
-    def _load_fields(self, session: Session, /):
-        for (field_id, value) in self.fields.items():
+    def _load_fields(self, session: Session, fields: dict[str, Any], /):
+        for (field_id, value) in fields.items():
             try:
                 if (isinstance(value, list)):
                     raise NotImplementedError(f"Setting multiple values for field not yet supported")
@@ -348,7 +401,7 @@ class Transaction(Flow[TransactionStage]):
                     txn_code=self.code,
                     field_id=field_id,
                     value=annotate(value),
-                    status=safe.readattr(session, "status")
+                    status=self.read_status(session)
                 )) from e
     def _set_field_value(self, session: Session, field_id: str, value: Any, /) -> None:
         if (value == SentinelKey.RADIO_BUTTON_SELECT.value ):
@@ -493,18 +546,20 @@ class Transaction(Flow[TransactionStage]):
             TransactionStage.READY_TO_EXPORT, 
             f"Must be at {TransactionStage.READY_TO_EXPORT} before initiating export"
         )
+        
         result: Result[ExportDetails]
         self.export_tel.start()
         if (not self.export_options 
             or self.export_options.method == ExportMethod.NONE
         ):
             result = Result(
-                Transaction.export, 
+                f"Transaction(id={self.id}, code={self.code}).export",
                 ExportDetails(None, None), 
                 success=True,
                 message=LogMsg(
                     f"Transaction executed successfully.",
                     f"self.export_options is undefined or indicated 'none' as method",
+                    last_status=self.last_status
                 )
             )
         else:
@@ -512,6 +567,9 @@ class Transaction(Flow[TransactionStage]):
                 TransactionStage.READY_TO_EXPORT, 
                 TransactionStage.EXPORTING
             )
+            mlog.debug(LogMsg(
+                f"Trying to export, {self.export_options.method=}"
+            ))
             result = ExportService.EXPORT_METHOD_REGISTRY.call(
                 self.export_options.method,
                 session, 
@@ -542,16 +600,23 @@ class Transaction(Flow[TransactionStage]):
 
     def _set_no_export_result(self) -> None:
         self._export_result = Result(
-            f"Transaction(id={self.id}).export",
+            f"Transaction(id={self.id}, code={self.code}).export",
             ExportDetails(None, None),
             success=True,
             message=LogMsg(
                 "Transaction executed successfully.",
                 "No export was requested.",
+                last_status=self.last_status
             ),
         )
 
     def get_result(self) -> Result[TransactionDetails]:
+        """
+        - *`@returns`* `self.export_result` 
+            - assumes `Result[TransactionDetails]` has been written to `export_result` by actions in previous stage
+            by requiring the that current stage is `TransactionStage.COMPLETED`
+            - otherwise throws error
+        """
         self.require_current_stage(
             TransactionStage.COMPLETED, 
             "Only able to generate TransactionResult once completed"
@@ -564,7 +629,7 @@ class Transaction(Flow[TransactionStage]):
             ))
         export_details = export_result.data or ExportDetails()
         return Result(
-            Transaction.get_result,
+            f"Transaction(id={self.id}, code={self.code}).get_result",
             data=TransactionDetails(
                 self.id, 
                 self.code, 
@@ -573,10 +638,18 @@ class Transaction(Flow[TransactionStage]):
                     export_details.path,
                     export_details.row_count,
                     self.export_tel
-                )
-            )
+                ),
+                status=self.last_status
+            ),
         )
 
+    def get_export_path(self) -> Path:
+        if (not self.export_options or not self.export_options.file):
+            raise RuntimeError(LogMsg(
+                f"Unable to retrieve export path",
+                export_options=self.export_options
+            ))
+        return self.export_options.file.path
 
 def resolve_transaction_id( # TODO should refine this
     txn: Transaction | TransactionOptions, 

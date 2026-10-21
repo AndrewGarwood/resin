@@ -10,6 +10,7 @@ from .worker import (SessionWorker)
 from ..transaction import (Transaction)
 from typing import Sequence
 from dataclasses import dataclass
+from lute import LogMsg
 
 
 @dataclass(frozen=True, slots=True)
@@ -23,9 +24,11 @@ def assign_batch(
     /,
 ) -> list[TransactionAssignment]:
     if len(transactions) > len(workers):
-        raise ValueError(
-            "A batch cannot contain more transactions than workers"
-        )
+        raise ValueError(LogMsg(
+            "A batch cannot contain more transactions than workers",
+            num_transactions=len(transactions),
+            num_workers=len(workers)
+        ))
 
     return [
         TransactionAssignment(transaction, worker)

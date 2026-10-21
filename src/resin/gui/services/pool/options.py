@@ -14,17 +14,6 @@ class SessionPoolOptionsDict(TypedDict, total=False):
     post_execute_timeout: float | None
     export_timeout: float | None
 
-
-"""
-    stop_timeout: float = 30.0
-    worker_start_timeout: float = 30.0
-    prepare_timeout: float | None = 120.0
-    execute_timeout: float | None = 600.0
-    post_execute_timeout: float | None = 120.0
-    export_timeout: float | None = 300.0
-
-"""
-
 @dataclass(frozen=True, slots=True)
 class SessionPoolOptions(Json.Serial[SessionPoolOptionsDict]):
     """

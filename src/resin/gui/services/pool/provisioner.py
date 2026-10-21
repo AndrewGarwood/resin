@@ -25,6 +25,7 @@ with pool:
 """
 from __future__ import annotations
 from collections.abc import Callable
+import time
 
 from pyqi import (export)
 from lute import LogMsg, get_logger
@@ -93,13 +94,9 @@ class SessionProvisioner:
             return self._provision_in_com_apartment()
 
     def _provision_in_com_apartment(self) -> SessionProvisioningResult:
-        application, launched_application = (
-            self._attach_application()
-        )
-
-        connection, opened_connection = (
-            self._resolve_connection(application)
-        )
+        application, launched_application = self._attach_application()
+        time.sleep(2)
+        connection, opened_connection = self._resolve_connection(application)
         connection_owned = (
             opened_connection
             and self.options.close_opened_connection_on_exit
@@ -284,12 +281,12 @@ class SessionProvisioner:
             if connection is not None:
                 return connection
         if (options.connection.index is None):
-            raise RuntimeError(LogMsg(
-                f"Invalid SessionProvisionerOptions",
-                f"Unable to select/identify a target Connection",
-                options=options.__str__(),
-                conn_options=str(options.connection)
-            ))
+            return None
+            # raise RuntimeError(LogMsg(
+            #     f"Unable to select/identify a target Connection",
+            #     options=options.__str__(),
+            #     conn_options=str(options.connection)
+            # ))
         try: return application.connections[options.connection.index]
         except IndexError: return None
     

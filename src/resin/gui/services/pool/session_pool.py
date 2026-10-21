@@ -8,10 +8,10 @@ from __future__ import annotations
 from collections.abc import Iterable
 from concurrent.futures import Future
 from dataclasses import dataclass
-from typing import Any, Self, Sequence
+from typing import (Any, Callable, Self, Sequence, overload, Literal)
 from resin.gui.com import (runtime)
 from resin.gui.services.pool.connection import ConnectionLease
-from resin.gui.services.transaction import Transaction
+from resin.gui.services.transaction import Transaction, build_result_dict
 from resin.gui.models.transaction import (TransactionStage, TransactionDetails)
 from resin.gui.models.connection_options import (ConnectionOptions)
 from .options import (SessionPoolOptions)
@@ -25,7 +25,7 @@ from .session_locator import (SessionLocator)
 from .provisioner import (SessionProvisioner, SessionProvisionerOptions)
 from .provisioner_types import (SessionProvisioningResult)
 from .exceptions import (SessionPoolError)
-from pyqi import (Arbitrary, resolve_arbitrary, Array, Result)
+from pyqi import (Arbitrary, fs, resolve_arbitrary, Array, Result)
 
 
 
@@ -86,12 +86,13 @@ class SessionPool():
         provisioner: SessionProvisioner, 
         /, 
         *, 
-        options: SessionPoolOptions | None=None
+        options: SessionPoolOptions | None=None,
     ) -> Self:
         result = provisioner.provision()
         return cls(
             result.bindings,
-            options
+            options,
+            connection_lease=result.connection
         )
     @classmethod
     def bootstrap(
@@ -173,14 +174,6 @@ class SessionPool():
 
         self._started = True
 
-    # def close(self) -> None:
-    #     if self._closed:
-    #         return
-    #     try:
-    #         self._stop_workers(self._workers)
-    #     finally:
-    #         self._closed = True
-    #         self._started = False
     def close(self) -> None:
         if self._closed:
             return
@@ -280,11 +273,38 @@ class SessionPool():
                 ],
             )
 
+    @overload
     def run(
         self,
         transactions: Arbitrary[Transaction], 
         /,
+        *,
+        return_dict: Literal[False],
+        key_normalizer: None = None
+    ) -> list[Result[TransactionDetails]]: ...
+    
+    @overload
+    def run(
+        self,
+        transactions: Arbitrary[Transaction], 
+        /,
+        *,
+        return_dict: Literal[True],
+        key_normalizer: Callable[[str], str] | None = None
+    ) -> dict[str, Result[TransactionDetails]]: ...
+
+    def run(
+        self,
+        transactions: Arbitrary[Transaction], 
+        /,
+        *,
+        return_dict: bool=False,
+        key_normalizer: Callable[[str], str] | None = None
     ):
+        """
+        - *`@param`* `key_normalizer` - if defined and `return_dict is True` then 
+        apply this function to `result.data.txn_id` to generate keys of returned dictionary 
+        """
         self._require_started()
         txns = list(resolve_arbitrary(transactions))
         self.validate_transactions(txns)
@@ -292,14 +312,18 @@ class SessionPool():
         results: list[Result[TransactionDetails]] = []
         for batch in batches:
             self._run_batch(assign_batch(batch, self._workers))
-            results.extend(Array.map(batch, lambda t: t.get_result()))
-        # for batch_start in range(0, len(txns), self.size):
-        #     batch = txns[batch_start: batch_start + self.size]
-        #     assignments = assign_batch(batch, self._workers)
-        #     self._run_batch(assignments)
-        #     results.extend(Array.map(batch, lambda t: t.get_result()))
-
-        return results
+            for txn in batch:
+                if txn.requires_export:
+                    path = txn.get_export_path()
+                    proc = fs.find_process_by_open_file(path)
+                    if (proc is None): continue
+                    _ = fs.kill_procs([proc])
+                results.append(txn.get_result())
+        return (
+            build_result_dict(results, key_normalizer=key_normalizer) 
+            if return_dict 
+            else results
+        )
 
     def _run_batch(
         self,

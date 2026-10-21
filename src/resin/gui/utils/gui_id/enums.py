@@ -10,9 +10,12 @@ class VKey(BaseIntEnum):
     Virtual Key [GUI_FKEY Table](https://help.sap.com/docs/sap_gui_for_windows/b47d018c3b9b45e897faf66a6c0885a8/71d8c95e9c7947ffa197523a232d8143.html) 
     """
     ENTER = 0
+    F3 = 3
+    F5 = 5
     F8 = 8
     F9 = 9
     SHIFT_F1 = 13
+    SHIFT_F3 = 15
     SHIFT_F4 = 16
     SHIFT_F5 = 17
     CTRL_S = 11
@@ -29,6 +32,11 @@ class VKey(BaseIntEnum):
     ASYNC_EXEC_START = 11
     DEFAULT_EXPORT = 16
     MB52_EXPORT = 43
+    TXN_GO_BACK = 3
+    TXN_NEXT_SCREEN = 5
+    TXN_CANCEL = 12 # F12
+    TXN_EXIT = 15 # exit txn back to user menu
+    EXIT_SESSION = 15 # 
 
 
 class BaseField(BaseStrEnum):

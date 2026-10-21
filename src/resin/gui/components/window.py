@@ -9,7 +9,7 @@ from .registry import (register_component)
 @register_component()
 class FrameWindow(VContainer):
     def send_vkey(self, key: int, /):
-        print(f"sending vkey {key} to {self._com.Type} with id='{self._com.Id}'")
+        # print(f"sending vkey {key} to {self._com.Type} with id='{self._com.Id}'")
         self._com.SendVKey(key)
 
     def is_vkey_allowed(self, key: int):
