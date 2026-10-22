@@ -8,7 +8,6 @@ from pyqi import (require, fs)
 from pyqi.models._result import Result
 from resin.gui.components.control import Button
 from resin.gui.components.grid_view import GridView
-from resin.gui.components.window import MainWindow
 from resin.gui.models import (ExportMethod, ExportOptions)
 from resin.gui.core import Session
 from resin.gui.models._export.result import ExportDetails
@@ -40,21 +39,16 @@ def via_context_menu(
             f"ExportOptions<{ExportMethod.CONTEXT_MENU.value}>.invoke.grid_id"
         )
         save_options = resolve_native_save_options(save_dialog_options)
-        grid = wait_for_component(
-            session, 
+        grid = session.wait_for_component(
             _grid_id, 
             component_cls=GridView, 
             _raise=True, 
-            timeout=10
+            timeout=3.0
         )
         grid_handle = grid.handle
         row_count = grid.row_count
         with EXPORT_UI_LM.engage_lock():
-            wnd = session.find(
-                GUI.wnd(GUI.MAIN_WINDOW_INDEX), 
-                component_cls=MainWindow, 
-                _raise=True
-            )
+            wnd = session.main_window
             wnd_handle = wnd.handle
             with native_save_dialog_watcher(
                 save_options, 
@@ -78,10 +72,12 @@ def via_context_menu(
                 )
                 confirm_btn.press()
                 handle_export_dialog(session, options, watcher)
-        saved = fs.wait_for_file_exists(options.file.path)
         return Result.ok(
             via_context_menu,
-            data=ExportDetails(saved, row_count),
+            data=ExportDetails(
+                fs.wait_for_file_exists(options.file.path), 
+                row_count
+            ),
             message=options.success_message()
         )
     except Exception as e:

@@ -5,11 +5,9 @@ from __future__ import annotations
 import time
 from typing import (Callable)
 from pyqi import (require, fs, Result)
-from resin.gui.components.window import MainWindow
 from resin.gui.models import (ExportMethod, ExportOptions)
 from resin.gui.core import Session
 from resin.gui.models._export.result import ExportDetails
-from resin.gui.utils import (gui_id as GUI)
 from .registry import (EXPORT_METHOD_REGISTRY)
 from .watcher import (native_save_dialog_watcher, NativeSaveDialogOptions)
 from .locks import EXPORT_UI_LM
@@ -29,15 +27,15 @@ def via_toolbar(
     try:
         if (options.method.value != ExportMethod.TOOLBAR_BUTTON.value):
             raise ValueError(
-                f"Invalid ExportOptions.method value for function {via_toolbar.__name__}")
-        btn_id = require.non_empty_string(options.invoke.export_button_id)
+                f"Invalid ExportOptions.method value for function {via_toolbar.__name__}"
+            )
+        btn_id = require.non_empty_string(
+            options.invoke.button_id, 
+            name=f"ExportOptions<{ExportMethod.TOOLBAR_BUTTON.value}>.invoke.button_id"
+        )
         save_options = resolve_native_save_options(save_dialog_options)
         with EXPORT_UI_LM.engage_lock():
-            wnd = session.find(
-                GUI.wnd(GUI.MAIN_WINDOW_INDEX), 
-                component_cls=MainWindow, 
-                _raise=True
-            )
+            wnd = session.main_window
             wnd_handle = wnd.handle
             with native_save_dialog_watcher(
                 save_options, 
@@ -45,20 +43,22 @@ def via_toolbar(
                 owner_hwnd=wnd_handle
             ) as watcher:
                 time.sleep(0.25)
-                session.press_button(btn_id)
+                session.press_button(btn_id, timeout=3.0)
                 handle_export_dialog(session, options, watcher)
-        saved = fs.wait_for_file_exists(options.file.path)
         return Result.ok(
             via_toolbar,
             data=ExportDetails(
-                saved, 
+                fs.wait_for_file_exists(options.file.path), 
                 row_count=attempt_row_count(session, options)
             ),
-            message=options.success_message()
+            message=options.success_message(),
+            status=session.get_status()
+
         )
     except Exception as e:
         return Result.fail(
             via_toolbar, 
             error=e, 
-            message=options.success_message()
+            message=options.success_message(),
+            status=session.get_status()
         )

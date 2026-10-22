@@ -139,7 +139,7 @@ class Session(FindMixin):
 
     @property
     def main_window(self) -> MainWindow:
-        """ - returns window at index 0 """
+        """ - returns window at index `0` """
         try:
             from ..components.window import MainWindow
             return self.find(

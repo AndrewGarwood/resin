@@ -164,10 +164,10 @@ def _save_worker(
                             time.sleep(poll)
                             continue
                         try:
-                            window.dump_class(
-                                backend=options.backend, 
-                                class_name=options.save_dialog.class_name
-                            )
+                            # window.dump_class(
+                            #     backend=options.backend, 
+                            #     class_name=options.save_dialog.class_name
+                            # )
                             dlg.wait(ControlState.VISIBLE_ENABLED.value, timeout=3.0)
                             watcher.handle_dialog(dlg, options, outpath)
                             return

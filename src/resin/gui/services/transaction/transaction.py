@@ -559,8 +559,8 @@ class Transaction(Flow[TransactionStage]):
                 message=LogMsg(
                     f"Transaction executed successfully.",
                     f"self.export_options is undefined or indicated 'none' as method",
-                    last_status=self.last_status
-                )
+                    status=self.read_status(session)
+                ),
             )
         else:
             self._transition(
@@ -568,7 +568,7 @@ class Transaction(Flow[TransactionStage]):
                 TransactionStage.EXPORTING
             )
             mlog.debug(LogMsg(
-                f"Trying to export, {self.export_options.method=}"
+                f"Transaction(id={self.id}) ExportMethod={self.export_options.method.value}"
             ))
             result = ExportService.EXPORT_METHOD_REGISTRY.call(
                 self.export_options.method,
@@ -576,7 +576,17 @@ class Transaction(Flow[TransactionStage]):
                 self.export_options, 
                 None
             )
-        self.export_tel.stop()
+            result.add_note(self.last_status)
+            self.export_tel.stop()
+            path = self.get_export_path()
+            if (path.exists()):
+                proc = fs.find_process_by_open_file(path, by_filename=True)
+                if (proc is not None):
+                    msg = f"Closed process holding exported file = {bool(fs.kill_procs([proc]))}"
+                    mlog.debug(msg)
+                    result.add_note(msg)
+                else:
+                    mlog.debug(f"Did not find process holding exported file")
         self._export_result = result
         self._transition(
             set([TransactionStage.READY_TO_EXPORT, TransactionStage.EXPORTING]),
@@ -641,6 +651,7 @@ class Transaction(Flow[TransactionStage]):
                 ),
                 status=self.last_status
             ),
+            error=export_result.error,
         )
 
     def get_export_path(self) -> Path:

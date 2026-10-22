@@ -312,13 +312,18 @@ class SessionPool():
         results: list[Result[TransactionDetails]] = []
         for batch in batches:
             self._run_batch(assign_batch(batch, self._workers))
-            for txn in batch:
-                if txn.requires_export:
-                    path = txn.get_export_path()
-                    proc = fs.find_process_by_open_file(path)
-                    if (proc is None): continue
-                    _ = fs.kill_procs([proc])
-                results.append(txn.get_result())
+            results.extend(Array.map(batch, lambda t: t.get_result()))
+            # for txn in batch:
+            #     # path = txn.get_export_path()
+            #     r = txn.get_result()
+            #     # if path.exists():
+            #     #     proc = fs.find_process_by_open_file(path)
+            #     #     if (proc is None): continue
+            #     #     r.add_note(
+            #     #         f"Closed process holding exported file = {bool(fs.kill_procs([proc]))}"
+            #     #     )
+            #     results.append(r)
+
         return (
             build_result_dict(results, key_normalizer=key_normalizer) 
             if return_dict 

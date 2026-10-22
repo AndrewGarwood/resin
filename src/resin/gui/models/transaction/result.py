@@ -26,6 +26,10 @@ class TransactionDetails():
             "status": self.status
         }
 
+    @property
+    def has_been_exported(self):
+        return bool(self.exported and self.exported.path_exists())
+
 # @dataclass
 # class TransactionResult(Result[TransactionDetails]):
 #     """ *`@extends`* `Result[TransactionDetails]` """

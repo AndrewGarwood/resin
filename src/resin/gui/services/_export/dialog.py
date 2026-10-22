@@ -58,7 +58,7 @@ def handle_export_dialog(
     watcher: NativeSaveDialogWatcher, 
     /,
 ) -> None:
-    handled = _try_native_dialog(options, watcher, timeout=10.0)
+    handled = _try_native_dialog(options, watcher, timeout=5.0)
     if (handled): 
         return None
     handled = _try_sapgui_dialog(session, options)

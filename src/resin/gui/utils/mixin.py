@@ -4,7 +4,7 @@
 from __future__ import annotations
 from typing import (Literal, TypeVar, overload, Protocol, TYPE_CHECKING)
 from resin.gui.components.factory import wrap_dispatch
-from resin.gui.exceptions import SapComError, SapGuiError
+from resin.gui.exceptions import SapComError, SapGuiError, SapComponentNotFoundError
 from ..com.gateway import ComGateway
 from ..context import SapContext
 from lute import LogMsg
@@ -121,7 +121,13 @@ class FindMixin():
                 raise_on_missing=_raise,
             )
 
-            if obj is None: return None
+            if obj is None: 
+                if (_raise):
+                    _cls = "Component" if not component_cls else component_cls.__name__
+                    raise SapComponentNotFoundError(LogMsg(
+                        f"Unable to find {_cls} with id={component_id}"
+                    ))
+                return None
             if component_cls is None:
                 return wrap_dispatch(
                     obj,

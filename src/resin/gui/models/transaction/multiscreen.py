@@ -3,7 +3,7 @@
 """
 from dataclasses import dataclass, replace
 from typing import (Any, Literal, Mapping, Self, TypedDict)
-from pyqi import export, Json
+from pyqi import export, Json, require
 from resin.gui.utils import gui_id
 from lute import LogMsg
 
@@ -78,6 +78,11 @@ class ScreenFieldSelection(Json.Serial[ScreenFieldSelectionDict]):
         _result_fields: dict[str, Any] = {} if not copy_existing else { **self.fields }
         _result_fields.update(fields)
         return replace(self, fields=_result_fields)
+
+
+    def set_field(self, field: str, value: Any, /) -> None:
+        self.fields[require.non_empty_string(field, 'field')] = value
+        return None
 
 
 
