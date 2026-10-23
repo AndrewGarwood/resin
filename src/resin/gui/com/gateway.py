@@ -501,14 +501,12 @@ class ComGateway():
         except SapComError:
             raise
         except Exception as e:
-            raise SapComError(
-                LogMsg.err(
-                    e,
-                    f"Unable to read COM property {prop!r}",
-                    dispatch=annotate(dispatch),
-                    source=source,
-                )
-            ) from e
+            raise SapComError(LogMsg.err(
+                e,
+                f"Unable to read COM property {prop!r}",
+                dispatch=annotate(dispatch),
+                source=source,
+            )) from e
 
 def get_application_com():
     try:

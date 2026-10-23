@@ -15,11 +15,12 @@ from ..components.factory import wrap_dispatch
 from ..context import SapContext
 from ..exceptions import (
     SapComError,
+    SapComponentNotFoundError,
     SapGuiError,
     SapGuiStatusError
 )
 from pyqi import (require, Function, safe)
-from lute import LogMsg
+from lute import LogMsg, annotate
 from resin.gui.com import runtime
 from resin.gui.utils import (gui_id as GUI, SupportsSet)
 from ..utils.mixin import (FindMixin)
@@ -124,18 +125,28 @@ class Session(FindMixin):
     @property
     def active_window(self) -> FrameWindow:
         try:
-            dispatch = self._com.ActiveWindow
+            dispatch = self.gateway.get_property(
+                self._com, 
+                "ActiveWindow", 
+                _raise=True, 
+                source=f"Session.active_window"
+            )
+            return wrap_dispatch(
+                dispatch,
+                gateway=self._gateway,
+                context=self._context
+            )
+        except SapComError as e:
+            raise SapComError(LogMsg.err(
+                e,
+                "Failed to read ActiveWindow property of self._com",
+                session_id = safe.readattr(self, "id", use_repr=True)
+            )) from e
         except Exception as e:
             raise SapComError(
                 f"Unable to obtain the active window for session "
                 f"{self.id!r}"
             ) from e
-
-        return wrap_dispatch(
-            dispatch,
-            gateway=self._gateway,
-            context=self._context,
-        )
 
     @property
     def main_window(self) -> MainWindow:
@@ -164,7 +175,12 @@ class Session(FindMixin):
         so it should not be forced through Component.FindById resolution.
         A dedicated immutable SessionInfo value object can be added later.
         """
-        return self.gateway.get_property(self._com, "Info", _raise=True, source="Session.info(self)")
+        return self.gateway.get_property(
+            self._com, 
+            "Info", 
+            _raise=True, 
+            source="Session.info(self)"
+        )
 
     @property
     def transaction(self) -> str:
@@ -234,7 +250,7 @@ class Session(FindMixin):
         except Exception as e:
             raise SapGuiError(LogMsg.err(
                 e, 
-                f"Error trying to find and press button",
+                f"Failed to find and press button",
                 btn_id=btn_id
             )) from e
 
@@ -256,9 +272,10 @@ class Session(FindMixin):
         except Exception as e:
             raise SapGuiError(LogMsg.err(
                 e,
-                f"Error trying to set text field",
+                f"Failed to set field value",
                 field_id=field_id,
-                field_cls=field_cls.__name__
+                field_cls=field_cls.__name__,
+                value=annotate(value)
             )) from e
 
     def select_radio_option(
