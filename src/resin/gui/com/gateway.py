@@ -4,8 +4,7 @@
 from __future__ import annotations
 from pathlib import Path
 from logging import Logger
-from typing import ( Generator, TypeVar, cast, overload, ClassVar, Literal, Any, Callable)
-import pythoncom
+from typing import ( TypeVar, cast, overload, ClassVar, Literal, Any, Callable)
 import win32com.client as win32
 from pyqi import export
 from pyqi.validation import require
@@ -27,8 +26,6 @@ T = TypeVar('T')
 
 class ComGateway():
     """
-    *`@extends`* `ReadPropertyMixin` (adds `staticmethod get_property()`)
-
     Boundary between the wrapper model and SAP GUI's COM API.
 
     The gateway deliberately resolves connections, sessions, and components
