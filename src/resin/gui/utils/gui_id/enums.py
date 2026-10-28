@@ -52,5 +52,62 @@ class BaseField(BaseStrEnum):
     txn_variant_name = "V"
     txn_variant_created_by = "ENAME"
 
+"""
+CTXT_INCLUDE_SINGLE_VALUE_TAB_ID = "SIVA"
+CTXT_INCLUDE_RANGE_TAB_ID = "INTL"
 
-__all__ = export(VKey, BaseField)
+CTXT_EXCLUDE_SINGLE_VALUE_TAB_ID = "NOSV"
+CTXT_EXCLUDE_RANGE_TAB_ID = "NOINT"
+
+CTXT_INCLUDE_SINGLE_VALUE_SUBSCREEN_INDEX = "3010"
+CTXT_INCLUDE_RANGE_SUBSCREEN_INDEX = "3020"
+
+CTXT_EXCLUDE_SINGLE_VALUE_SUBSCREEN_INDEX = "3030"
+CTXT_EXCLUDE_RANGE_SUBSCREEN_INDEX = "3040"
+"""
+
+class ComboTextFieldTabId(BaseStrEnum):
+    """
+    ```
+    INCLUDE_SINGLE_VALUE = "SIVA"
+    INCLUDE_INTERVAL = "INTL"
+    EXCLUDE_SINGLE_VALUE = "NOSV"
+    EXCLUDE_INTERVAL = "NOINT"
+    ```
+    """
+    INCLUDE_SINGLE_VALUE = "SIVA"
+    INCLUDE_INTERVAL = "INTL"
+    EXCLUDE_SINGLE_VALUE = "NOSV"
+    EXCLUDE_INTERVAL = "NOINT"
+
+class ComboTextFieldTabIndex(BaseStrEnum):
+    """
+    ```
+    INCLUDE_SINGLE_VALUE = "3010"
+    INCLUDE_INTERVAL = "3020"
+    EXCLUDE_SINGLE_VALUE = "3030"
+    EXCLUDE_INTERVAL = "3040"
+    ```
+    """
+    INCLUDE_SINGLE_VALUE = "3010"
+    INCLUDE_INTERVAL = "3020"
+    EXCLUDE_SINGLE_VALUE = "3030"
+    EXCLUDE_INTERVAL = "3040"
+
+class ComboTextFieldSelectionType(BaseStrEnum):
+    """
+    ```
+    INTERVAL = "INTERVAL"
+    SINGLE_VALUE = "SINGLE"
+    ```
+    """
+    INTERVAL = "INTERVAL"
+    SINGLE_VALUE = "SINGLE"
+
+__all__ = export(
+    VKey, 
+    BaseField, 
+    ComboTextFieldTabId, 
+    ComboTextFieldTabIndex, 
+    ComboTextFieldSelectionType
+)

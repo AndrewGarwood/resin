@@ -557,7 +557,7 @@ class Session(FindMixin):
         poll_interval: float=0.1
     ) -> Any:
         """ 
-        *`@returns`* `Function.Deferred(session.find, component_id, _raise=_raise, component_cls=component_cls)` 
+        *`@returns`* `Function.Deferred(self.find, component_id, _raise=_raise, component_cls=component_cls)` 
         if component is found within deadline 
         """
         return runtime.poll_until(
@@ -568,16 +568,4 @@ class Session(FindMixin):
             _raise=_raise
         )
 
-@dataclass(frozen=True, slots=True)
-class SessionInfo:
-    transaction: str
-    response_time_ms: int
-    system_session_id: str
-    user: str
-    system_name: str
-    system_number: int
-    application_server: str
-    client: str
-    screen_number: int
-    session_number: int
-    
+__all__ = ["Session"]

@@ -16,6 +16,9 @@ def is_reserved_kwarg(value: Any, /) -> TypeGuard[Literal["sentinel", "args"]]:
 
 
 class SentinelKey(BaseStrEnum):
+    """
+    keys may or may not require a registered function to handle them.
+    """
     FIRST_DAY_OF_MONTH = "FIRST_DAY_OF_MONTH"
     LAST_DAY_OF_MONTH = "LAST_DAY_OF_MONTH"
     CUSTOM_DATE = "CUSTOM_DATE" # COMPUTE_DATE

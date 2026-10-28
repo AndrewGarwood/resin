@@ -11,7 +11,15 @@ from lute import LogMsg, get_logger, annotate
 from pyqi.models._result import Result
 from resin.gui.components.control import (TextField,  CheckBox)
 from resin.gui.models.transaction.multiscreen import ScreenStep
-from resin.models._field import (resolve_field_dict, resolve_field_value, SentinelKey, is_sentinel_value_dict)
+from resin.models._field import (
+    resolve_field_dict, 
+    resolve_field_value, 
+    SentinelKey, 
+    is_sentinel_value_dict,
+    ValueOptionsDict,
+    ValueOptions,
+    SENTINEL_FUNCTION_REGISTRY
+    )
 from resin.gui.models._export._method import ExportMethod
 from resin.gui.models._export.result import (ExportDetails, CompletedExport)
 from resin.gui.models.transaction import (
@@ -21,12 +29,12 @@ from resin.gui.models.transaction import (
     VariantOptions,
     ExecutionType
 )
+from resin.models._field.value_options import is_value_options_dict
 from .. import _export as ExportService
 from resin.gui.core import (Session)
 from resin.gui.utils import (gui_id as GUI)
 from resin.gui.exceptions import (SapGuiError)
 import re
-import sys
 
 mlog = get_logger(__file__)
 
@@ -379,7 +387,7 @@ class Transaction(Flow[TransactionStage]):
             try:
                 if (isinstance(value, list)):
                     raise NotImplementedError(f"Setting multiple values for field not yet supported")
-                if (value == SentinelKey.RADIO_BUTTON_SELECT.value ):
+                if (value == SentinelKey.RADIO_BUTTON_SELECT.value):
                     session.select_radio_option(field_id)
                     continue
                 stem = GUI.stem(field_id).lower()
@@ -404,39 +412,48 @@ class Transaction(Flow[TransactionStage]):
                     status=self.read_status(session)
                 )) from e
     def _set_field_value(self, session: Session, field_id: str, value: Any, /) -> None:
-        if (value == SentinelKey.RADIO_BUTTON_SELECT.value ):
+        raise NotImplementedError()
+        if (value == SentinelKey.RADIO_BUTTON_SELECT.value):
             session.select_radio_option(field_id)
-            return None
-        
-        stem = GUI.SapFieldIdStem.parse(field_id)
-        if (is_sentinel_value_dict(value) and value.get('sentinel') == SentinelKey.MULTIPLE_SELECTION.value):
-            
-            # or maybe can copy "\n".join(values) to clipboard and press the "copy from clipboard button"
-            if (not value): return None
-            raise NotImplementedError(f"Setting multiple values for field not yet supported")
-            field_parent = GUI.parent(field_id)
-            if stem.component_type != "ctxt":
+            return
+        if (is_sentinel_value_dict(value)):
+            sentinel = SentinelKey.resolve(value['sentinel'])
+            if (sentinel == SentinelKey.RADIO_BUTTON_SELECT):
+                field_type = GUI.field_type(field_id)
+                if field_type != 'rad':
+                    raise ValueError(LogMsg(
+                        f"Invalid field_id for {SentinelKey.RADIO_BUTTON_SELECT.value}",
+                        expected_field_type='rad',
+                        received_field_type=field_type
+                    ))
+                if (len(value) > 1):
+                    raise NotImplementedError(
+                        "Specifying specific RadioButton option given base button id not yet supported"
+                    )
+                session.select_radio_option(field_id)
+                return
+            # value = ""
+        field_stem = GUI.SapFieldIdStem.parse(field_id)
+        raise NotImplementedError()
+        if (isinstance(value, (dict))):
+            value_options = ValueOptions.from_dict(value)
+            if field_stem.component_type != "ctxt":
                 raise ValueError(LogMsg(
                     f"Setting multiple values is only supported for",
                     "ComboTextField components (ctxt)",
-                    component_type=stem.component_type,
+                    component_type=field_stem.component_type,
                 ))
-            if (not stem.base):
+            if (not field_stem.base):
                 raise ValueError(LogMsg(
                     f"SapFieldIdStem must have base identifier to set multiple values"
                 ))
-            _btn_id_stem = stem.selection_button(stem.base)
+            _btn_id_stem = GUI.SapFieldIdStem.selection_button(field_stem.base)
             new_wnd_index = GUI.get_window_index(session.active_window.id)
-            mutli_select_btn = GUI.join(
-                GUI.replace_window(field_parent, new_wnd_index or 1), 
-                _btn_id_stem
-            )
-            session.press_button(mutli_select_btn)
 
-            raise NotImplementedError(f"Setting multiple values for field not yet supported")
+        raise NotImplementedError()
         field_cls = (
-            TextField if (stem.component_type in ("txt", "ctxt"))# , "okcd"
-            else CheckBox if stem.component_type == "chk"
+            TextField if (field_stem.component_type in ("txt", "ctxt"))# , "okcd"
+            else CheckBox if field_stem.component_type == "chk"
             else None
         )
         if (field_cls is None):

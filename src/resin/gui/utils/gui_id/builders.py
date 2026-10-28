@@ -1,14 +1,12 @@
 """
 *`@file`* `gui/utils/gui_id/builders`
 """
-
 from __future__ import annotations
-from typing import Literal, Optional
+from typing import (Literal)
 from pyqi import (export, require)
-from re import match as re_match
-from lute import LogMsg
-from .enums import (BaseField)
+from .enums import (BaseField, ComboTextFieldTabIndex, ComboTextFieldTabId)
 from .factory import *
+from .constants import *
 
 
 def txn_variant_name(window_index: int=1,/) -> str:
@@ -63,4 +61,97 @@ def execute_txn_btn(
 ) -> str:
     return tbar_btn(window_index, toolbar_index, button_index)
 
+def cell_index_suffix(*, row: int, col: int=1) -> str:
+    """
+    *`@returns`* `"[{col}, {row}]"` 
+    """
+    return "".join([
+        "[",
+        ", ".join(str(x) for x in (
+            require.positive_integer(col, 'ctxt_cell_column_index'),
+            require.non_negative_integer(row, 'ctxt_cell_row_index')
+        )),
+        "]"
+    ])
 
+def ctxt_cell_id(
+    field_id: str, 
+    /, 
+    *, 
+    row: int, 
+    col: int=1
+) -> str:
+    """
+    *`@returns`* `f"{field_id}[{col}, {row}]"`
+    """
+    return f"{field_id}{cell_index_suffix(row=row, col=col)}"
+
+def ctxt_single_value_field_id(
+    window: str | int | None,
+    tab_id: Literal[
+        ComboTextFieldTabId.INCLUDE_SINGLE_VALUE,
+        ComboTextFieldTabId.EXCLUDE_SINGLE_VALUE
+    ],
+    tab_index: Literal[
+        ComboTextFieldTabIndex.INCLUDE_SINGLE_VALUE,
+        ComboTextFieldTabIndex.EXCLUDE_SINGLE_VALUE
+    ],
+    is_exclude: bool=False
+) -> str:
+    """
+    ```
+    endpoint: Literal["LOW"] = "LOW", # → SLOW_('E'|'I')
+    ```
+    """
+    return join(
+        usr(window),
+        TAB_STRIP,
+        tabp(tab_id),
+        ssub('SCREEN_HEADER', 'SAPLALDB', tab_index),
+        tblSAPLALDB('SINGLE', is_exclude=is_exclude),
+        ctxt(
+            None, 
+            f"{CTXT_MULTI_SELECTION_BASE}-SLOW_{'E' if is_exclude else 'I'}"
+        )
+    )
+
+
+def ctxt_interval_field_id(
+    window_index: int | None,
+    tab_id: Literal[
+        ComboTextFieldTabId.INCLUDE_INTERVAL, 
+        ComboTextFieldTabId.EXCLUDE_INTERVAL
+    ],
+    tab_index: Literal[
+        ComboTextFieldTabIndex.INCLUDE_INTERVAL, 
+        ComboTextFieldTabIndex.EXCLUDE_INTERVAL
+    ],
+    endpoint: Literal["LOW", "HIGH"],
+    is_exclude: bool=False,
+) -> str:
+    return join(
+        usr(window_index),
+        TAB_STRIP,
+        tabp(tab_id),
+        ssub('SCREEN_HEADER', 'SAPLALDB', tab_index),
+        tblSAPLALDB('INTERVAL', is_exclude=is_exclude),
+        ctxt(
+            None,
+            f"{CTXT_MULTI_SELECTION_BASE}-I{endpoint}_{'E' if is_exclude else 'I'}"
+        )
+    )
+
+__all__ = export(
+    export_dialog_confirm_btn, 
+    export_dialog_dirpath, 
+    export_dialog_filename,
+    cntl_grid,
+    txn_variant_created_by,
+    txn_variant_name,
+    txn_variant_name,
+    execute_txn_btn,
+    ctxt_cell_id,
+    cell_index_suffix,
+    ctxt_single_value_field_id, 
+    ctxt_interval_field_id
+)

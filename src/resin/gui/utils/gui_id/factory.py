@@ -1,8 +1,9 @@
 """
 *`@file`* `gui/utils/gui_id/factory`
+- TODO: standardize param names and types and how they are interpreted...
 """
 from __future__ import annotations
-from typing import Optional
+from typing import Literal, Optional
 from pyqi import (export)
 from .parts import (join)
 
@@ -38,7 +39,7 @@ def usr(window: int | str | None=None, /) -> str:
     """
     *`@returns`* 
     - `f"{wnd(window)}/usr" if isinstance(window, int)`
-    - `else f"{window}/usr" if (window)`
+    - `else f"{window}/usr" if (window)` # `is str`
     - `else "usr"`    
     """
     return (
@@ -63,16 +64,17 @@ def tbar_btn(window_index: int | None, toolbar_index: int, button_index: int, /)
     )
 
 
-def ctxt(container_id: str | None, field_id: str, /) -> str:
+def ctxt(parent_id: str | None, field_id: str, /) -> str:
     """ 
-    `GuiCTextField`
+    - `GuiCTextField`
+    - *`@returns`* `f"{container_id}/ctxt{field_id}" if (container_id) else f"ctxt/{field_id}"`
     ```
     # field id for export directory and filename:
     ctxt(usr(1), "DY_PATH")   # "wnd[1]/usr/ctxtDY_PATH"
     ctxt(usr(1), "DY_FILENAME")   # "wnd[1]/usr/ctxtDY_FILENAME"
     ```
     """
-    return f"{container_id}/ctxt{field_id}" if (container_id) else f"ctxt/{field_id}"
+    return f"{parent_id}/ctxt{field_id}" if (parent_id) else f"ctxt/{field_id}"
 
 def txt(container_id: str | None, field_id: str, /) -> str:
     """
@@ -86,6 +88,13 @@ def lbl(container_id: str, row: Optional[int]=None, col: Optional[int]=None) -> 
         result += f"[{row},{col}]"
     return result
 
+def tabp(item: str | None = None, /) -> str:
+    """
+    - id of `GuiTab`, child of `GuiTabStrip`
+    - *`@returns`* `f"tabp{item or ''}"`
+    - i.e. tab_item
+    """
+    return f"tabp{item or ''}"
 
 def okcd(window_index: int = 0, /) -> str:
     """ 
@@ -103,7 +112,30 @@ def upperbound(field_id: str, /) -> str:
     return f"{field_id}-HIGH"
 
 
+def tblSAPLALDB(
+    _type: Literal["INTERVAL", "SINGLE"], 
+    is_exclude: bool=False
+) -> str:
+    """
+    *`@returns`* `f"tblSAPLALDB{tbl_type}{'_E' if is_exclude else ''}"`
+    """
+    return f"tblSAPLALDB{_type}{'_E' if is_exclude else ''}"
+
+def ssub(
+    base: Literal['SCREEN_HEADER'] | str,
+    item: Literal['SAPLALDB'] | str | None,
+    index: str | int | None = None
+) -> str:
+    """
+    *`@returns`* `"ssub{base}:{item}:{index}"` or just `"ssub{base}"`
+    """
+    parts = [f"ssub{base}"]
+    if (item is not None and index is not None):
+        parts.extend((item, str(index)))
+    return ":".join(parts)
+
 __all__ = export(
     wnd, btn, tbar, sbar, usr, chk, shell, 
-    tbar_btn, ctxt, txt, lbl, okcd, lowerbound, upperbound
+    tbar_btn, ctxt, txt, lbl, okcd, lowerbound, upperbound, 
+    tblSAPLALDB, tabp, ssub
 )

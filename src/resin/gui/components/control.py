@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import Any
 
 from .component import (Component, VComponent)
+from .container import (VContainer)
 from .registry import (register_component)
 from ..utils.concurrency import (busy_safe)
 from ..utils.debug import (debug_component)
@@ -93,8 +94,21 @@ class CTextField(TextField):
     """
     ...
 
+@register_component()
+class Tab(VComponent, VContainer): 
+    @busy_safe()
+    def select(self):
+        self._resolve().Select()
+
+    def scroll_to_left(self):
+        self._resolve().ScrollToLeft()
 
 
+@register_component()
+class TabStrip(VContainer[Tab]):
+    """
+    *`@extends`* `VContainer[Tab]`
+    """
 
 @register_component()
 class Label(VComponent):
@@ -124,4 +138,4 @@ class RadioButton(VComponent):
             self._resolve(), "GroupCount", int, _raise=True
         )
 
-__all__ = export(CheckBox, RadioButton, TextField, CTextField, Label, Button)
+__all__ = export(CheckBox, RadioButton, TextField, CTextField, Label, Button, Tab)

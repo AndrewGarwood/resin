@@ -120,7 +120,7 @@ class Container(Component, FindMixin, Generic[ChildT]):
             component_id,
         )
 
-class VContainer(Container):
+class VContainer(Container[ChildT]):
     """
     [SAP GuiVContainer](https://help.sap.com/docs/sap_gui_for_windows/b47d018c3b9b45e897faf66a6c0885a8/76a8c4e46d1d4f8caa5f70b6dcfc5f34.html)
     """ 

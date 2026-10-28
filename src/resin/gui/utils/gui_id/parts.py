@@ -7,8 +7,10 @@ from pyqi import (export, require)
 import re
 
 def join(*parts: str) -> str:
-    """ *`@returns`* `'/'.join(x.strip().rstrip("/") for x in parts)` """
-    return '/'.join(x.strip().rstrip("/") for x in parts if (x))
+    """ 
+    *`@returns`* `'/'.join(x.strip().rstrip("/") for x in parts if bool(x))` 
+    """
+    return '/'.join(x.strip().rstrip("/") for x in parts if bool(x))
 
 def parent(id: str, /) -> str:
     return id.rsplit("/", 1)[0]
@@ -61,6 +63,9 @@ def get_container_index(id: str, /, container_type: str | Literal["wnd"]) -> int
     return int(m.groupdict()["index"]) if m else None
 
 def get_window_index(id: str, /):
+    """
+    *`@returns`* `index: int | None = get_container_index(id, "wnd")`
+    """
     return get_container_index(id, "wnd")
 
 def field_type(field_id: str, /) -> str:
