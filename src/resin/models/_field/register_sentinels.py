@@ -87,19 +87,34 @@ def custom_date(
     **kwargs
 ) -> str:
     """
+    kwargs are for: 
+    ```
+    def compute_date(
+        *,
+        anchor: DateValue | None = None,
+        year_offset: int = 0,
+        month_offset: int = 0,
+        day_offset: int = 0,
+        year: int | None=None,
+        month: int | str | None = None,
+        day: int | Literal["first", "last"] | None = None,
+    ) -> dt.date: ...
+    ```
     e.g. LAST_DAY_OF_PREV_MONTH
+    ```
     {
         "sentinel": "COMPUTE_DATE",
         "month_offset": -1,
         "day": "last",
     }
+    ```
     """
     return compute_date(**kwargs).strftime(fmt)
 
 @SENTINEL_FUNCTION_REGISTRY.register(SentinelKey.PREVIOUS_BUSINESS_DAY)
 def previous_business_day(
     fmt: str | FormatString = FormatString.MDY_SLASH.value,
-    holidays: Optional[Collection[str]] = None
+    holidays: Collection[str] | None = None
 ) -> str:
     _holidays = Array.filter_map(list(holidays or []), dt.Date.resolve)
     return dt.Date.previous_business_day(None, holidays=_holidays).strftime(fmt)
