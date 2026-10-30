@@ -34,7 +34,7 @@ class FileOptions(Json.Serial[FileOptionsDict]):
             path = fs.to_path(path)
         elif (outdir):
             path = fs.to_path(outdir).joinpath(name or f'export.xlsx')
-        else:
+        elif (path and outdir and name):
             raise RuntimeError(LogMsg(
                 "Invalid arguments for FileOptions constructor",
                 "Expected: 1. path or 2. outdir and name",
@@ -43,6 +43,8 @@ class FileOptions(Json.Serial[FileOptionsDict]):
                 outdir=str(outdir),
                 name=str(name)
             ))
+        else:
+            path = Path(name or f'export.xlsx')
         self._path = path
 
     def formatted_path(

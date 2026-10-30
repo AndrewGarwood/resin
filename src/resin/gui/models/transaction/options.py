@@ -35,6 +35,7 @@ class TransactionOptions(Json.Serial[TransactionOptionsDict]):
     method: ExecutionType = ExecutionType.STANDARD
     fields: dict[str, Any] = field(default_factory=dict)
     """ 
+    - `fields` store definitions, resolved at runtime immediately before loading into SAPGUI.
     - these are fields that can be populated on the first screen when starting a transaction
     """
     layout: LayoutOptions | None = None

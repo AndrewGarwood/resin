@@ -38,6 +38,10 @@ class SentinelKey(BaseStrEnum):
     MULTIPLE_SELECTION = "MULTIPLE_SELECTION"
     """ no function initially registered to this key """
 
+# _ACTION_SENTINELS = frozenset({
+#     SentinelKey.RADIO_BUTTON_SELECT,
+#     SentinelKey.MULTIPLE_SELECTION,
+# })
 
 class SentinelValueDict(TypedDict):
     sentinel: SentinelKey | str

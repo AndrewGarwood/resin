@@ -271,10 +271,10 @@ class SapFieldIdStem:
     @staticmethod
     def selection_button(base: str, /) -> str:
         """
-        *`@returns`* `f"btn{SapFieldIdStem.wrap_selection_button_base(base)}-VALU-PUSH"`
+        *`@returns`* `f"btn{SapFieldIdStem.wrap_selection_button_base(base)}-VALU_PUSH"`
         """
         return (
-            f"btn{SapFieldIdStem.wrap_selection_button_base(base)}-VALU-PUSH"
+            f"btn{SapFieldIdStem.wrap_selection_button_base(base)}-VALU_PUSH"
         )
 
     # def generate_grid_entries(

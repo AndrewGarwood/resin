@@ -3,7 +3,7 @@
 """
 from collections.abc import Collection
 from datetime import date
-from typing import (Any, Optional)
+from typing import (Any)
 from pyqi import (dt, Array)
 from pyqi._dt import (FormatString, compute_date)
 from ._sentinel import (SentinelKey)

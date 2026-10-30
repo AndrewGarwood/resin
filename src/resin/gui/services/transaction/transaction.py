@@ -4,7 +4,7 @@
 from __future__ import annotations
 from pathlib import Path
 import threading, time
-from typing import (Any, Callable, Optional, Self, Sequence)
+from typing import (Any, Callable, Optional, Self)
 from pyqi.models import StageTransition, Telemetry, Flow
 from pyqi import (fs, require, dt, safe, export, Array)
 from lute import LogMsg, get_logger, annotate
@@ -12,13 +12,9 @@ from pyqi.models._result import Result
 from resin.gui.components.control import (TextField,  CheckBox)
 from resin.gui.models.transaction.multiscreen import ScreenStep
 from resin.models._field import (
-    resolve_field_dict, 
-    resolve_field_value, 
-    SentinelKey, 
+    resolve_field_value,
+    SentinelKey,
     is_sentinel_value_dict,
-    ValueOptionsDict,
-    ValueOptions,
-    SENTINEL_FUNCTION_REGISTRY
     )
 from resin.gui.models._export._method import ExportMethod
 from resin.gui.models._export.result import (ExportDetails, CompletedExport)
@@ -29,7 +25,13 @@ from resin.gui.models.transaction import (
     VariantOptions,
     ExecutionType
 )
-from resin.models._field.value_options import is_value_options_dict
+from .field_operation import (
+    _FieldOperation, _SelectRadio, _SetCheckbox, _SetText, _SetMultiSelection
+)
+from .multi_selection import (
+    is_multi_selection_value, prepare_multi_selection, apply_multi_selection
+)
+from copy import deepcopy
 from .. import _export as ExportService
 from resin.gui.core import (Session)
 from resin.gui.utils import (gui_id as GUI)
@@ -51,8 +53,8 @@ class Transaction(Flow[TransactionStage]):
     fields: dict[str, Any]
     """
     - these are fields that can be populated on the first screen when starting a transaction
-    - field entries resolved in `__init__`. 
-    - can view `self.options.fields` for original/unresovled field dictionary 
+    - stores independent, unresolved definitions; evaluated before each screen load.
+    - `self.options.fields` retains the original configured definitions.
     """
     execute_fn: Callable[[Self, Session], Any] | None
     """ 
@@ -73,14 +75,14 @@ class Transaction(Flow[TransactionStage]):
 
         self.options = options
         self.code = options.code
-        self.fields = resolve_field_dict(options.fields)
+        self.fields = deepcopy(options.fields)
         self.layout = options.layout
         self.method = ExecutionType.resolve(options.method)
         self.export_options = options.export
         self.variant = options.variant
         self.screens = Array.map(
             options.screens, 
-            lambda s: s.with_fields(resolve_field_dict(s.fields))
+            lambda s: s.with_fields(deepcopy(s.fields))
         )
         self.id = resolve_transaction_id(options, _id, extract_id_from_path)
 
@@ -250,7 +252,7 @@ class Transaction(Flow[TransactionStage]):
     def set_field(self, key: str, value: Any, /) -> None:
         """ if want to add/overwrite an entry in `self.fields` """
         key = require.non_empty_string(key, "Field Id")
-        self.fields[key] = resolve_field_value(value)
+        self.fields[key] = deepcopy(value)
     
     # =========================================================================
     # Core Transaction Flow
@@ -310,7 +312,7 @@ class Transaction(Flow[TransactionStage]):
                 e,
                 f"Failed to enter fields on Transaction screen(s)",
                 screens=Array.map(self.screens, lambda k: k.to_dict()),
-                status=self.read_status(session)
+                status=self.last_status
             )) from e
 
     def _handle_screen_step(self, session: Session, step: ScreenStep, /) -> None:
@@ -382,85 +384,82 @@ class Transaction(Flow[TransactionStage]):
                 status=self.read_status(session)
             )) from e
         
-    def _load_fields(self, session: Session, fields: dict[str, Any], /):
-        for (field_id, value) in fields.items():
+    def _load_fields(self, session: Session, fields: dict[str, Any], /) -> None:
+        operations: list[_FieldOperation] = []
+        for field_id, value in fields.items():
             try:
-                if (isinstance(value, list)):
-                    raise NotImplementedError(f"Setting multiple values for field not yet supported")
-                if (value == SentinelKey.RADIO_BUTTON_SELECT.value):
-                    session.select_radio_option(field_id)
-                    continue
-                stem = GUI.stem(field_id).lower()
-                field_cls = (
-                    TextField if stem.startswith(("txt", "ctxt")) # , "okcd"
-                    else CheckBox if stem.startswith("chk")
-                    else None
-                )
-                if (field_cls is None):
-                    raise ValueError(LogMsg(
-                        f"Unable to infer field_id's component class, or it is unsupported"
-                    ))
-                session.set_field_value(field_id, value, field_cls=field_cls)
+                operations.append(self._prepare_field(field_id, value))
             except Exception as e:
                 raise RuntimeError(LogMsg.err(
                     e,
-                    f"Failed to set field value",
-                    txn_id=self.id,
-                    txn_code=self.code,
+                    "Failed to prepare field value",
                     field_id=field_id,
                     value=annotate(value),
-                    status=self.read_status(session)
+                    txn_id=self.id,
+                    txn_code=self.code,
                 )) from e
-    def _set_field_value(self, session: Session, field_id: str, value: Any, /) -> None:
-        raise NotImplementedError()
-        if (value == SentinelKey.RADIO_BUTTON_SELECT.value):
-            session.select_radio_option(field_id)
-            return
-        if (is_sentinel_value_dict(value)):
-            sentinel = SentinelKey.resolve(value['sentinel'])
-            if (sentinel == SentinelKey.RADIO_BUTTON_SELECT):
-                field_type = GUI.field_type(field_id)
-                if field_type != 'rad':
-                    raise ValueError(LogMsg(
-                        f"Invalid field_id for {SentinelKey.RADIO_BUTTON_SELECT.value}",
-                        expected_field_type='rad',
-                        received_field_type=field_type
-                    ))
-                if (len(value) > 1):
-                    raise NotImplementedError(
-                        "Specifying specific RadioButton option given base button id not yet supported"
-                    )
-                session.select_radio_option(field_id)
-                return
-            # value = ""
-        field_stem = GUI.SapFieldIdStem.parse(field_id)
-        raise NotImplementedError()
-        if (isinstance(value, (dict))):
-            value_options = ValueOptions.from_dict(value)
-            if field_stem.component_type != "ctxt":
-                raise ValueError(LogMsg(
-                    f"Setting multiple values is only supported for",
-                    "ComboTextField components (ctxt)",
-                    component_type=field_stem.component_type,
-                ))
-            if (not field_stem.base):
-                raise ValueError(LogMsg(
-                    f"SapFieldIdStem must have base identifier to set multiple values"
-                ))
-            _btn_id_stem = GUI.SapFieldIdStem.selection_button(field_stem.base)
-            new_wnd_index = GUI.get_window_index(session.active_window.id)
+        for op in operations:
+            try:
+                self._apply_field(session, op)
+            except Exception as e:
+                raise RuntimeError(LogMsg.err(
+                    e,
+                    f"Failed to apply prepared FieldOperation",
+                    operation=str(op),
+                    txn_id=self.id,
+                    txn_code=self.code,
+                    status=self.last_status
+                )) from e
 
-        raise NotImplementedError()
-        field_cls = (
-            TextField if (field_stem.component_type in ("txt", "ctxt"))# , "okcd"
-            else CheckBox if field_stem.component_type == "chk"
-            else None
-        )
-        if (field_cls is None):
-            raise ValueError(LogMsg(
-                f"Unable to infer field_id's component class, or it is unsupported"
-            ))
-        session.set_field_value(field_id, value, field_cls=field_cls)
+
+    def _prepare_field(self, field_id: str, value: Any, /) -> _FieldOperation:
+        field_id = require.non_empty_string(field_id, "Field Id")
+        if is_multi_selection_value(value):
+            return prepare_multi_selection(field_id, value)
+        value = resolve_field_value(value)
+        if is_multi_selection_value(value):
+            return prepare_multi_selection(field_id, value, resolve=False)
+        field_type = GUI.field_type(field_id)
+        sentinel = None
+        if isinstance(value, str):
+            sentinel = SentinelKey.try_resolve(value)
+        elif is_sentinel_value_dict(value):
+            sentinel = SentinelKey.resolve(value['sentinel'])
+        if sentinel == SentinelKey.RADIO_BUTTON_SELECT:
+            if field_type != 'rad' or GUI.stem(field_id) == 'rad':
+                raise ValueError("Radio selection requires a radio field ID containing its option")
+            if isinstance(value, dict) and value.keys() != {'sentinel'}:
+                raise ValueError("Radio selection does not support additional options")
+            return _SelectRadio(field_id)
+        if field_type in ('txt', 'ctxt'):
+            if value is not None and not isinstance(value, (str, int, float, bool)):
+                raise TypeError("Text fields require a scalar string, number, boolean, or None")
+            return _SetText(field_id, "" if value is None else str(value))
+        if field_type == 'chk':
+            if not isinstance(value, bool):
+                raise TypeError("Checkbox fields require a boolean")
+            return _SetCheckbox(field_id, value)
+        raise ValueError(f"Unsupported field component type: {field_type!r}")
+
+    def _apply_field(self, session: Session, operation: _FieldOperation, /) -> None:
+        if isinstance(operation, _SetText):
+            session.set_field_value(
+                operation.field_id,
+                operation.value,
+                field_cls=TextField,
+            )
+        elif isinstance(operation, _SetCheckbox):
+            session.set_field_value(
+                operation.field_id,
+                operation.value,
+                field_cls=CheckBox,
+            )
+        elif isinstance(operation, _SelectRadio):
+            session.select_radio_option(operation.field_id)
+        elif isinstance(operation, _SetMultiSelection):
+            apply_multi_selection(session, operation)
+        else: # should be unreachable
+            raise ValueError(LogMsg(f"Invalid FieldOperation {str(operation)}"))
 
     def execute(self, session: Session, /) -> Any:
         self._transition(

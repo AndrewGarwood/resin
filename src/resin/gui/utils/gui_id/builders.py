@@ -7,6 +7,7 @@ from pyqi import (export, require)
 from .enums import (BaseField, ComboTextFieldTabIndex, ComboTextFieldTabId)
 from .factory import *
 from .constants import *
+from .parts import join
 
 
 def txn_variant_name(window_index: int=1,/) -> str:
@@ -109,10 +110,7 @@ def ctxt_single_value_field_id(
         tabp(tab_id),
         ssub('SCREEN_HEADER', 'SAPLALDB', tab_index),
         tblSAPLALDB('SINGLE', is_exclude=is_exclude),
-        ctxt(
-            None, 
-            f"{CTXT_MULTI_SELECTION_BASE}-SLOW_{'E' if is_exclude else 'I'}"
-        )
+        f"ctxt{CTXT_MULTI_SELECTION_BASE}-SLOW_{'E' if is_exclude else 'I'}"
     )
 
 
@@ -135,10 +133,7 @@ def ctxt_interval_field_id(
         tabp(tab_id),
         ssub('SCREEN_HEADER', 'SAPLALDB', tab_index),
         tblSAPLALDB('INTERVAL', is_exclude=is_exclude),
-        ctxt(
-            None,
-            f"{CTXT_MULTI_SELECTION_BASE}-I{endpoint}_{'E' if is_exclude else 'I'}"
-        )
+        f"ctxt{CTXT_MULTI_SELECTION_BASE}-I{endpoint}_{'E' if is_exclude else 'I'}"
     )
 
 __all__ = export(

@@ -9,6 +9,7 @@ from ._resolve import (
     resolve_field_dict
 )
 from .registry import SENTINEL_FUNCTION_REGISTRY
+from . import register_sentinels as RegisterSentinels
 
 # TODO: allow user to declare sentinel k:v entries in config json, 
 # then use if encounter k in fields
