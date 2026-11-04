@@ -1,5 +1,206 @@
 # resin
 
+## AO and IBP workbook controllers
+
+The controllers live in `resin.ao` and `resin.ibp`. They share single-use,
+single-threaded Excel ownership, staged workbook transactions, cooperative
+deadlines, cooldown decisions, explicit outcomes, and recovery-aware publication.
+They use `noxl` for Excel sessions, `lute` for logging, and resin's existing
+`pyqi`-based field resolution and Windows automation helpers.
+
+**Validation status:** covered by fake COM/session/UI and filesystem tests only.
+No live Excel, AO, IBP, login, or production-workbook validation has been
+performed. Legacy `shared.sap` controllers and report imports have intentionally
+not been redirected to these controllers; migrate explicitly after validating
+disposable workbook copies in your SAP environment.
+
+### Analysis for Office
+
+```python
+from resin import ao, RefreshStatus
+
+options = ao.ControllerOptions.from_dict({
+    "staging": r"C:\Temp\resin",
+    "refresh_cooldown_minutes": 30,
+    "staging_policy": "always",
+})
+workbook = ao.WorkbookOptions.from_dict({
+    "filepath": r"C:\Data\analysis.xlsm",
+    "template": r"C:\Data\analysis.template.xlsx",
+    "ds_alias": "DS_1",
+    "prompts": {"P_DATE": {"sentinel": "FIRST_DAY_OF_MONTH"}},
+    "set_prompts": True,
+})
+
+with ao.Controller(options) as controller:
+    outcome = controller.refresh(workbook)
+    if outcome.status == RefreshStatus.REFRESHED:
+        print(outcome.refreshed_at, outcome.publication)
+```
+
+Definitions are copied without evaluating dynamic prompts at options creation.
+`refresh` resolves enabled prompts exactly once per operation through
+`resin.models._field.resolve_field_dict`, before prompt writes; retries reuse the
+resolved values. A later refresh resolves the definitions again. Pass
+`resolve_prompts=False` if the caller has already resolved them or a literal
+string must not be interpreted as a sentinel. GUI action sentinels and unsupported
+prompt shapes are not workbook prompt commands.
+
+The new `refresh` API honors `WorkbookOptions.set_prompts` when its override is
+omitted. `refresh_workbook(workbook, set_prompts=False, timeout_minutes=30,
+force=False, *, resolve_prompts=True)` retains the old explicit flag default and
+returns `None`. It accepts a second positional prompt flag. Prefer `refresh` for
+distinguishing a refresh from a cooldown skip.
+
+AO checks the exact configured add-in (`SapExcelAddIn` by default), datasource
+readiness and SAP command responses. It retains the initial refresh, pause,
+prompts, resume, final refresh sequence, with consistent pause flags:
+`INACTIVE` uses refresh `Off` / variable submission pause `On`; `ACTIVE` uses
+`On` / `Off`. This corrects the inverted legacy enum mapping. Restoration
+failure invalidates the controller rather than allowing another operation with
+uncertain add-in state.
+
+Completion conservatively requires an advancing workbook refresh timestamp and
+Excel readiness. This predicate and the corrected pause sequence still require
+installed-version verification; unchanged timestamps time out instead of
+returning a fabricated completion time. Details explicitly distinguish offline
+completion checks from live validation.
+
+### IBP
+
+```python
+from resin import ibp
+
+options = ibp.ControllerOptions.from_dict({
+    "staging": r"C:\Temp\resin",
+    "refresh_cooldown_minutes": 30,
+    "connection": {"name": "My IBP Connection"},
+    "connection_mode": "workbook",
+})
+workbook = ibp.WorkbookOptions.from_dict({
+    "path": r"C:\Data\planning.xlsm",
+    "sheetname": "Demand View",
+    "data_origin": "A5",
+    "search_headers": ["Material"],
+})
+
+with ibp.Controller(options) as controller:
+    outcome = controller.refresh(workbook, method=ibp.RefreshMethod.PYWINAUTO)
+```
+
+Workbook mode is the default. Without a binding verifier it conservatively calls
+`Connect` for each non-skipped target, requires an explicit successful boolean/
+integer return (`True`/`1`), and checks the connection name. This is **not** a
+claim that the installed add-in actually returns that shape. Supply a
+deployment-verified binding adapter if your add-in differs. Configuring a
+planning area, server URL, or connection ID requires such a verifier; matching
+workbook metadata alone cannot verify them.
+
+The controller rejects nonempty filters and `refresh_only=False`: it does not
+silently apply filters or perform writeback. API refresh remains an explicit
+choice and may be disabled by your IBP administrator. There is no automatic
+API/UI fallback and no replay after an ambiguous refresh error.
+
+Both backends wait for a stable, advanced `SOP_Refresh_Timestamp`; the API's
+invocation time is not a completion timestamp. UI refresh reuses resin's
+PID-scoped Windows helpers, scopes Refresh lookup to the selected SAP IBP ribbon,
+and serializes focus/dispatch/completion. It needs an exclusive interactive
+Windows desktop; a locked desktop, another automation process, or user focus
+changes can interfere. Opening a controller is never a headless-login promise.
+
+#### Experimental anchor workbook
+
+Set `connection_mode="anchor"` and pass `binding_verifier=...` to opt in.
+An explicit connection name and a verifier are mandatory. The verifier signature
+is:
+
+```python
+def verify_binding(
+    *, workbook, worksheet, requested, connections, connect_result
+) -> ibp.BindingObservation:
+    ...
+```
+
+Implement this adapter against your installed add-in's documented/observed
+connection results. `VALID` must prove both usable authentication and the complete
+requested identity. `MISSING` and `EXPIRED` request bounded connection work before
+refresh; mismatches raise `ConnectionBindingError`. Raw `GetConnections` results
+remain structured. Do not mark a session valid merely because its workbook has a
+matching `SOP_Connection_Name`.
+
+In anchor mode `__enter__` creates a uniquely named local tracked `.xlsx`,
+activates it, connects, and verifies the binding before returning. If blank
+workbooks are unsupported, configure `anchor_seed` and `anchor_sheetname` to use
+a private copy of a sanitized IBP workbook instead. The seed itself is not
+modified. The anchor stays open between target refreshes, and closes before
+Excel exits. Valid target bindings can reuse authentication without `Connect`;
+missing target bindings still require a supported binding/Connect operation.
+Entry failure is an error, not a silent fallback to workbook mode.
+
+The anchor is **not validated for your installed IBP version**. Before adopting
+it, compare two disposable target workbooks in one owned Excel process against
+workbook mode. Verify connection/planning-area identity, actual completed data,
+Connect counts, login-dialog counts, anchor lifetime, expiry/cancellation,
+conflicting targets, and cleanup. Authentication reuse and target binding are
+separate observations.
+
+### Outcomes, staging and failures
+
+`refresh` returns an immutable `RefreshOutcome` with `REFRESHED` or
+`SKIPPED_COOLDOWN`, actual workbook timestamps, operation ID, timings, publication
+disposition, and typed add-in details. A skip closes its target without saving
+or publishing. `force=True` bypasses cooldown in the new API for either add-in.
+Future timestamps clamp cooldown with a warning. Missing timestamps require a
+refresh; malformed values raise rather than being stripped into a plausible date.
+Workbook timestamps are treated as local-naive values and honor the workbook's
+1900/1904 date system.
+
+The deprecated IBP `refresh_workbook` adapter returns `RefreshInfo`, including
+legacy skip placeholders. New code should inspect the explicit status rather
+than treating those placeholders as real connection identities. Historical
+case-sensitive module spellings are compatibility imports within resin; they
+do not redirect the separate legacy package automatically.
+
+Staging defaults to **always**, including local workbooks. Use `"never"` for an
+intentional in-place save, or `"auto"` with configured `stage_roots` for local
+cloud-sync roots (UNC paths are also staged). Raw HTTP(S) sources are rejected;
+filesystem staging is not a download/upload transport. Each operation gets a
+unique directory so repeated or same-basename workbooks cannot overwrite one
+another's staging files. Staging itself must be on a local filesystem.
+
+Publication closes Excel's target handle first, coordinates resin writers with
+an exclusive sibling lock file, checks source content fingerprints, verifies a
+new sibling copy, creates a uniquely named backup beside the destination, and
+then uses same-directory replacement. Failures retain recovery output and report
+the relevant paths in the exception's `context`. Backups are retained for the
+caller to manage. No shared staging directory is swept or recursively deleted.
+
+This is not remote compare-and-swap: arbitrary noncooperating editors can race
+the final check, and network/cloud providers may not supply local filesystem
+atomicity or synchronization guarantees. Ensure exclusive access when those
+guarantees matter. A stale `.resin-publish.lock` causes a bounded wait/failure;
+remove one only after verifying its owner is gone. In-place saving offers no
+original-file rollback on save failure.
+
+Controllers own one isolated Excel process, are single-use, and reject reentry,
+concurrent/reentrant refreshes and cross-thread access. Borrowed sessions are
+explicitly rejected because the underlying save watchdog can terminate its
+session's Excel process. Only an owned process is eligible for that watchdog.
+Fatal COM/save failures require a new controller.
+
+One monotonic refresh budget covers controllable waits through publication;
+startup has a separate budget. These are **cooperative deadlines**, not a way
+to interrupt arbitrary blocked COM calls. The underlying save watchdog is the
+exception. Cancellation/failure closes targets without another implicit save,
+releases the add-in/anchor, and unwinds the owned Excel session.
+
+Run the mock-only controller suite without starting Excel or SAP:
+
+```powershell
+python -m unittest discover -s tests -p test_workbook_core.py
+python -m unittest discover -s tests -p "*controller.py"
+```
+
 ## Transaction field definitions
 
 Transaction fields are unresolved configuration definitions. Construction and
