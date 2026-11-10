@@ -2,7 +2,6 @@
 *`@file`* `resin/gui/com/gateway`
 """
 from __future__ import annotations
-from pathlib import Path
 from logging import Logger
 from typing import ( TypeVar, cast, overload, ClassVar, Literal, Any, Callable)
 import win32com.client as win32
@@ -20,7 +19,7 @@ from ..exceptions import (
 from .types import (DispatchLike)
 
 from lute import (LogMsg, annotate, get_logger)
-mlog = get_logger(Path(__file__).stem)
+mlog = get_logger(__file__)
 
 T = TypeVar('T')
 

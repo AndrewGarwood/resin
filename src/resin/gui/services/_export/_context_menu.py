@@ -1,7 +1,6 @@
 """
 *`@file`* `gui/services/_export/_context_menu`
 """
-
 import time
 from typing import (Callable)
 from pyqi import (require, fs)

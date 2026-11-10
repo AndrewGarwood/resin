@@ -10,7 +10,6 @@ EXCEL_ERROR_BASE = -2146826288
 XL_ERR_NA = -2146826246
 AoResponseTup: TypeAlias = tuple[str | None, str | None]
 
-
 class AoProp(BaseStrEnum):
     CHANGED_DATASOURCES = "ChangedDatasources"
     CHANGED_CROSSTABS = "ChangedCrosstabs"
@@ -22,13 +21,11 @@ class AoProp(BaseStrEnum):
     IS_CONNECTED = "IsConnected"
     HAS_CHANGED_PLAN_DATA = "HasChangedPlanData"
 
-
 class AoResponseCode(BaseIntEnum):
     SUCCESS = 1
     FAILURE = 0
     DATASOURCE_INVALID = 31
     DATASOURCE_UNRESOLVED = 32
-
 
 class DsAliasState(BaseStrEnum):
     EXCEL_ERROR = auto()

@@ -2,6 +2,7 @@
 *`@file`* `resin/gui/exceptions`
 """
 from __future__ import annotations
+from resin.utils.exceptions import ComError
 
 
 class SapGuiError(RuntimeError):
@@ -12,7 +13,7 @@ class SapGuiNotAvailableError(SapGuiError):
     """SAP GUI or its scripting engine is unavailable."""
 
 
-class SapComError(SapGuiError):
+class SapComError(SapGuiError, ComError):
     """A COM call failed or returned an incompatible object."""
 
 

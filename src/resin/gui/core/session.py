@@ -5,10 +5,9 @@ from __future__ import annotations
 
 import time
 from typing import TYPE_CHECKING, Any, Literal, TypeVar, overload
-from dataclasses import dataclass
 from win32com.client import CDispatch
 
-from resin.gui.com.runtime import validate_polling
+from resin.utils.runtime import validate_polling
 from ..com.gateway import ComGateway
 from ..com.types import DispatchLike
 from ..components.factory import wrap_dispatch

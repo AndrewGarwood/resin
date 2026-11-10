@@ -5,7 +5,7 @@
 
 from __future__ import annotations
 from typing import (Literal, overload, Any, TYPE_CHECKING, TypeVar)
-from ..com import runtime
+from resin.utils import runtime
 from ..components.component import Component
 from pyqi import Function
 

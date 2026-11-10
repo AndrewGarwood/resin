@@ -11,7 +11,7 @@ from pyqi import (Array, LockManager, require, Function, fs)
 from pyqi.models import RetryOptions
 from lute import LogMsg, get_logger, annotate
 from threading import (Event, Thread)
-from resin.gui.com.runtime import com_apartment
+from resin.utils.runtime import com_apartment
 from pywinauto import Desktop
 from pywinauto.base_wrapper import BaseWrapper
 from resin.utils.winauto.control.types import ControlState

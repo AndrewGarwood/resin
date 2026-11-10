@@ -9,7 +9,7 @@ from collections.abc import Iterable
 from concurrent.futures import Future
 from dataclasses import dataclass
 from typing import (Any, Callable, Self, Sequence, overload, Literal)
-from resin.gui.com import (runtime)
+from resin.utils import runtime
 from resin.gui.services.pool.connection import ConnectionLease
 from resin.gui.services.transaction import Transaction, build_result_dict
 from resin.gui.models.transaction import (TransactionStage, TransactionDetails)
@@ -25,7 +25,7 @@ from .session_locator import (SessionLocator)
 from .provisioner import (SessionProvisioner, SessionProvisionerOptions)
 from .provisioner_types import (SessionProvisioningResult)
 from .exceptions import (SessionPoolError)
-from pyqi import (Arbitrary, fs, resolve_arbitrary, Array, Result)
+from pyqi import (Arbitrary, resolve_arbitrary, Array, Result)
 
 
 

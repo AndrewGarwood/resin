@@ -1,10 +1,5 @@
 from __future__ import annotations
-
-import logging
-from pathlib import Path
 from typing import TYPE_CHECKING, Any, Optional, Self
-import lute
-from lute.message import LogMsg
 from pyqi.validation import require
 from win32com.client import CDispatch
 from ..com.gateway import ComGateway
@@ -19,7 +14,8 @@ from ..exceptions import (
 from .connection import Connection
 
 
-mlog = lute.get_logger(__file__)
+from lute import get_logger
+mlog = get_logger(__file__)
 
 
 class Application:

@@ -11,7 +11,7 @@ from typing import Any
 
 from pyqi import require
 
-from resin.gui.com import runtime
+from resin.utils import runtime
 from resin.gui.core.session import Session
 from resin.gui.services.transaction import Transaction
 

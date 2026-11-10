@@ -1,12 +1,11 @@
 """
 *`@file`* `resin/gui/utils/concurrency`
 """
-
 import time
 import threading
 import pythoncom
 from functools import wraps
-from typing import (Any, Callable, TypeVar, ParamSpec, Concatenate, Generic)
+from typing import (Any, Callable, TypeVar, ParamSpec, Concatenate)
 from lute import LogMsg, annotate
 
 P = ParamSpec("P")

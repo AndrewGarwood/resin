@@ -6,7 +6,6 @@ from __future__ import annotations
 
 from typing import Any, Protocol
 
-
 class DispatchLike(Protocol):
     """
     Structural type for a late-bound COM dispatch object.

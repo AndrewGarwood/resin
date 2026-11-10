@@ -1,16 +1,13 @@
 """
 *`@file`* `gui/services/pool/utils`
-
 """
 import time
-
-from resin.gui.com import runtime
+from resin.utils import runtime
 from resin.gui.core.application import Application
 from .session_locator import (SessionLocator)
 from .session_binding import (SessionBinding)
 from pyqi import Array, require, export, fs
 from resin.gui.config import (AppManager)
-
 
 def discover_session_locators() -> list[SessionLocator]:
     with runtime.com_apartment():
