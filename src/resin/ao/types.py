@@ -1,10 +1,11 @@
 """
 *`@file`* `ao/types`
 """
+from dataclasses import dataclass
 from enum import auto
 from typing import TypeAlias
 from pyqi import BaseStrEnum, BaseIntEnum, export
-
+from resin._workbook.exceptions import WorkbookControllerError
 
 AoResponseTup: TypeAlias = tuple[
     str | None, 
@@ -233,8 +234,23 @@ class AoCmd(BaseStrEnum):
     [Hide/Show](https://help.sap.com/docs/SAP_ANALYSIS_OFFICE_CLOUD/b25c777a2c8c4e3da2f472cce24f289c/f2710db86c9b1014bf2c9a7eb0e91070.html#hide/show) 
     """
 
+
+class AoCommandError(WorkbookControllerError):
+    """AO rejected a command, prompt or completion observation."""
+
+@dataclass(frozen=True)
+class AoRefreshDetails:
+    ds_alias: str
+    prompts_applied: tuple[str, ...] = ()
+    command_responses: tuple[tuple[str, int], ...] = ()
+    completion_verified: bool = False
+    live_semantics_verified: bool = False
+
+
+
 __all__ =  export(
     "AoResponseTup",
+    AoCommandError,
     AoProp,
     AoResponseCode,
     AoCmd,
@@ -245,5 +261,6 @@ __all__ =  export(
     AoMeasureDisplay,
     AoObjectType,
     DsAliasState,
-    RefreshActiveStatus
+    RefreshActiveStatus,
+    AoRefreshDetails,
     )

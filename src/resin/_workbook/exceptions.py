@@ -15,6 +15,9 @@ class WorkbookControllerError(RuntimeError):
         self.add_note(", ".join(f"{key}={value}" for key, value in context.items()))
 
 
+class ExcelComValueError(WorkbookControllerError):
+    """ If API (e.g. ao) returned an Excel error instead of a scalar value."""
+
 class ConfigurationError(WorkbookControllerError, ValueError):
     pass
 
@@ -37,3 +40,4 @@ class PublicationError(WorkbookIOError):
 
 class DeadSessionError(WorkbookControllerError):
     pass
+

@@ -95,13 +95,16 @@ class BaseController():
         return self._session
 
 
-    def deadline(self, seconds: float, /):
+    def deadline(self, timeout_seconds: float, /, poll_seconds: float | None=None):
         return Deadline(
-            seconds=seconds, 
+            seconds=timeout_seconds, 
             clock=self._clock, 
             sleep=self._sleep, 
             pump=self._pump,
-            poll_seconds=self.options.poll_seconds
+            poll_seconds=require.positive_number(
+                poll_seconds or self.options.poll_seconds, 
+                f"{self.__class__.__name__}.deadline(..., <poll_seconds>)"
+                )
         )
 
     def __enter__(self):

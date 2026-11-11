@@ -1,4 +1,7 @@
-"""Cooperative deadlines and workbook timestamp normalization."""
+"""
+*`@file`* `_workbook/deadline`
+"""
+
 from __future__ import annotations
 
 from datetime import datetime

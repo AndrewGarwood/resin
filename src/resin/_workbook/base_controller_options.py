@@ -4,14 +4,14 @@
 from dataclasses import dataclass
 from pathlib import Path
 from pyqi import (Json, fs, Array, require, export)
-from typing import (Self, Any, TypedDict)
+from typing import (Self, Any, TypedDict, Required)
 from .types import StagingPolicy
 from lute import LogMsg
 
 class BaseControllerOptionsDict(TypedDict, total=False):
-    staging: str
+    staging: Required[str]
     staging_policy: str | StagingPolicy
-    stage_roots: list[str] # list of paths where, if the workbook's path is relative to the root, then the workbook should be staged.
+    stage_roots: list[str]
     cooldown_seconds: float
     poll_seconds: float
     startup_timeout_seconds: float
@@ -32,10 +32,10 @@ class BaseControllerOptions(Json.Serial[BaseControllerOptionsDict]):
 
 
     @classmethod
-    def from_dict(cls, data: BaseControllerOptionsDict | dict[str, Any]) -> Self:
+    def from_dict(cls, data: BaseControllerOptionsDict | dict[str, Any], /) -> Self:
         try:
             return cls(
-                staging=fs.to_path(data.get('staging', '')),
+                staging=fs.to_path(data['staging']),
                 staging_policy=StagingPolicy.resolve(
                     data.get('staging_policy', StagingPolicy.ALWAYS)
                 ),
