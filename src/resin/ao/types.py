@@ -2,9 +2,11 @@
 *`@file`* `ao/types`
 """
 from dataclasses import dataclass
+from datetime import datetime
 from enum import auto
-from typing import TypeAlias
-from pyqi import BaseStrEnum, BaseIntEnum, export
+from typing import (TypeAlias, Any)
+from json import dumps
+from pyqi import (BaseStrEnum, BaseIntEnum, export)
 from resin._workbook.exceptions import WorkbookControllerError
 
 AoResponseTup: TypeAlias = tuple[
@@ -242,10 +244,40 @@ class AoCommandError(WorkbookControllerError):
 class AoRefreshDetails:
     ds_alias: str
     prompts_applied: tuple[str, ...] = ()
-    command_responses: tuple[tuple[str, int], ...] = ()
+    responses: tuple[tuple[str, int], ...] = ()
     completion_verified: bool = False
     live_semantics_verified: bool = False
+    last_data_update: Any | None = None
+    last_data_update_max: Any | None = None
 
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "ds_alias": self.ds_alias,
+            "prompts_applied": list(self.prompts_applied),
+            "responses": list[self.responses],
+            "completion_verified": self.completion_verified,
+            "live_semantics_verified": self.live_semantics_verified,
+            "last_data_update": self.get_last_data_update(),
+            "last_data_update_max": self.get_last_data_update_max()
+        }
+
+    def __str__(self):
+        return "<AoRefreshDetails>" + dumps(self.to_dict(), indent=4)
+
+    def get_last_data_update(self):
+        val = self.last_data_update
+        return (
+            val.isoformat() if isinstance(val, datetime) 
+            else str(val) if val is not None 
+            else None
+        )
+    def get_last_data_update_max(self):
+        val = self.last_data_update_max
+        return (
+            val.isoformat() if isinstance(val, datetime) 
+            else str(val) if val is not None 
+            else None
+        )
 
 
 __all__ =  export(

@@ -1,11 +1,11 @@
 """
 *`@file`* `_workbook/exceptions`
 """
-
-
+from lute import LogMsg
+from pyqi import export
 
 class WorkbookControllerError(RuntimeError):
-    def __init__(self, message: str, **context: object) -> None:
+    def __init__(self, message: str | LogMsg, **context: object) -> None:
         self.context = context
         super().__init__(message)
 
@@ -40,4 +40,16 @@ class PublicationError(WorkbookIOError):
 
 class DeadSessionError(WorkbookControllerError):
     pass
+
+
+__all__ = export(
+    WorkbookControllerError, 
+    ExcelComValueError, 
+    ConfigurationError, 
+    ConnectionBindingError, 
+    RefreshTimeoutError, 
+    WorkbookIOError, 
+    PublicationError, 
+    DeadSessionError
+)
 

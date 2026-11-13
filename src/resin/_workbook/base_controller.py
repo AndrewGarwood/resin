@@ -239,24 +239,25 @@ class BaseController():
             raise DeadSessionError("Refresh requires a READY controller")
         if self._busy:
             raise WorkbookControllerError("Concurrent/reentrant workbook operation rejected")
-        deadline = self.deadline(require.positive_number(timeout_minutes, "timeout_minutes") * 60)
+        deadline = self.deadline(
+            require.positive_number(timeout_minutes, "timeout_minutes") * 60
+        )
         source = path
-        tx = WorkbookTransaction(self, source, deadline)
+        txn = WorkbookTransaction(self, source, deadline)
         self._busy = True
         try:
-            with tx:
-                yield tx
-        except Exception as error:
-            if self.is_fatal(error):
-                self.invalidate(error)
-            context = tx.error_context()
-            if isinstance(error, WorkbookControllerError):
-                error.add_context(**context)
+            with txn: yield txn
+        except Exception as e:
+            if self.is_fatal(e):
+                self.invalidate(e)
+            context = txn.error_context()
+            if isinstance(e, WorkbookControllerError):
+                e.add_context(**context)
                 raise
-            wrapped = DeadSessionError if self.is_fatal(error) else WorkbookIOError
+            wrapped = DeadSessionError if self.is_fatal(e) else WorkbookIOError
             raise wrapped(
-                f"Workbook operation failed during {tx.phase}", **context
-            ) from error
+                f"Workbook operation failed during {txn.phase}", **context
+            ) from e
         finally:
             self._busy = False
 

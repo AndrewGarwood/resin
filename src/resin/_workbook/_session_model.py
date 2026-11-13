@@ -29,6 +29,14 @@ class Session(Protocol):
         self, wb: Any, /, save_changes: bool = False
     ) -> None: ...
 
+    def resolve_wb_source(self, wb_source: Any, /) -> Any: 
+        """
+        resolve source to workbook com object
+        """
+        ...
+        
+    def wait_for_idle(self, timeout_seconds: int=900, poll_seconds: float=2.0): ...
+
 
 SessionFactory: TypeAlias = Callable[[], Session]
 

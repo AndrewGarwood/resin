@@ -14,7 +14,6 @@ from resin.utils import runtime
 from .exceptions import ConfigurationError, RefreshTimeoutError
 
 mlog = get_logger(__name__)
-# _NUMBER = re.compile(r"[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?")
 
 class Deadline:
     def __init__(

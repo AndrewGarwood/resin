@@ -19,6 +19,9 @@ class BaseControllerOptionsDict(TypedDict, total=False):
 
 @dataclass
 class BaseControllerOptions(Json.Serial[BaseControllerOptionsDict]):
+    """
+    *`@extends`* `Json.Serial[BaseControllerOptionsDict]`
+    """
     staging: Path
     staging_policy: StagingPolicy
     stage_roots: list[Path] 
@@ -26,32 +29,33 @@ class BaseControllerOptions(Json.Serial[BaseControllerOptionsDict]):
     list of paths where, if the workbook's path is relative to the root, 
     then the workbook should be staged (unless `staging_policy` is `never`).
     """
-    cooldown_seconds: float
-    poll_seconds: float
-    startup_timeout_seconds: float
+    cooldown_seconds: float = 3600
+    poll_seconds: float = 0.25
+    startup_timeout_seconds: float = 90
 
 
     @classmethod
     def from_dict(cls, data: BaseControllerOptionsDict | dict[str, Any], /) -> Self:
         try:
             return cls(
-                staging=fs.to_path(data['staging']),
-                staging_policy=StagingPolicy.resolve(
-                    data.get('staging_policy', StagingPolicy.ALWAYS)
-                ),
-                stage_roots=Array.map(
-                    data.get('stage_roots', []), 
-                    fs.to_path
-                ),
-                cooldown_seconds=require.positive_number(
-                    data.get('cooldown_seconds', 3600)
-                ),
-                poll_seconds = require.positive_number(
-                    data.get('poll_seconds', 0.25)
-                ),
-                startup_timeout_seconds = require.positive_number(
-                    data.get('startup_timeout_seconds', 90)
-                )
+                **cls.read_base_entries(data)
+                # staging=fs.to_path(data['staging']),
+                # staging_policy=StagingPolicy.resolve(
+                #     data.get('staging_policy', StagingPolicy.ALWAYS)
+                # ),
+                # stage_roots=Array.map(
+                #     data.get('stage_roots', []), 
+                #     fs.to_path
+                # ),
+                # cooldown_seconds=require.positive_number(
+                #     data.get('cooldown_seconds', 3600)
+                # ),
+                # poll_seconds = require.positive_number(
+                #     data.get('poll_seconds', 0.25)
+                # ),
+                # startup_timeout_seconds = require.positive_number(
+                #     data.get('startup_timeout_seconds', 90)
+                # )
             )
         except (KeyError, ValueError): raise
         except Exception as e:
@@ -60,6 +64,38 @@ class BaseControllerOptions(Json.Serial[BaseControllerOptionsDict]):
                 f"Failed to construct {cls.__name__} from dictionary.",
                 received=Json.serialize(data)
             )) from e
+
+    @staticmethod
+    def read_base_entries(data: BaseControllerOptionsDict | dict[str, Any], /):
+        """
+        ```
+        staging: Required[str] # → Path
+        staging_policy: str | StagingPolicy # → StagingPolicy
+        stage_roots: list[str] # → list[Path]
+        cooldown_seconds: float # → float
+        poll_seconds: float # → float
+        startup_timeout_seconds: float # → float
+        ```
+        """
+        return {
+            "staging": fs.to_path(data['staging']),
+            "staging_policy": StagingPolicy.resolve(
+                data.get('staging_policy', StagingPolicy.ALWAYS)
+            ),
+            "stage_roots": Array.map(
+                data.get('stage_roots', []), 
+                fs.to_path
+            ),
+            "cooldown_seconds": require.positive_number(
+                data.get('cooldown_seconds', 3600)
+            ),
+            "poll_seconds": require.positive_number(
+                data.get('poll_seconds', 0.25)
+            ),
+            "startup_timeout_seconds": require.positive_number(
+                data.get('startup_timeout_seconds', 90)
+            )
+        }
 
 
 

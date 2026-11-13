@@ -5,7 +5,7 @@
 import time
 from typing import Any, Callable, Sequence
 
-from pyqi import require, export
+from pyqi import (require, export, dt)
 
 from resin._workbook.deadline import Deadline
 from resin._workbook.exceptions import (
@@ -36,23 +36,32 @@ def is_busy(error: Exception) -> bool:
 
 
 def to_error_tuple(value: Any, /) -> AoResponseTup:
+    """ *`@returns`* `(response_code, message)` """
     while isinstance(value, (tuple, list)) and len(value) == 1:
         value = value[0]
     if value is None or value == "":
         return None, None
     if isinstance(value, Sequence) and not isinstance(value, (str, bytes, bytearray)):
         if len(value) >= 2:
-            return str(value[0]) if value[0] is not None else None, str(value[1])
+            return (
+                str(value[0]) if value[0] is not None else None, 
+                str(value[1])
+            )
     return str(value), None
 
 def error_is_clear(value: Any, /) -> bool:
     code, message = to_error_tuple(value)
     return code in (None, "", "0", "0.0") and message in (None, "", "None")
 
-def _probe_macro_readiness(excel: Any, deadline: Deadline, /):
-    op_label = "AO macro readiness"
+def _probe_macro_readiness(
+        excel: Any, 
+        deadline: Deadline, 
+        /, 
+        *, 
+        label = "AO macro readiness"
+    ):
     while True:
-        deadline.check("AO macro readiness")
+        deadline.check(label)
         try:
             excel.Run(AoMacro.GET_PROPERTY.value, AoProp.LAST_ERROR.value)
         except Exception as e:
@@ -60,7 +69,7 @@ def _probe_macro_readiness(excel: Any, deadline: Deadline, /):
                 raise ConnectionBindingError("")
             deadline.pause()
         else:
-            deadline.check(op_label)
+            deadline.check(label)
             return
 
 
@@ -92,10 +101,13 @@ def ensure_sap_ao_ready(
         raise ConnectionBindingError("Cannot connect configured AO add-in") from None
     _probe_macro_readiness(excel, deadline)
 
+
+
 __all__ = export(
     is_busy, 
     error_is_clear, 
     ensure_sap_ao_ready, 
     to_error_tuple, 
-    require_ao_bool
+    require_ao_bool,
+    _probe_macro_readiness
 )

@@ -3,15 +3,13 @@ from __future__ import annotations
 
 from contextlib import contextmanager
 from datetime import datetime
-import hashlib
-import os
+from enum import StrEnum
 from pathlib import Path
-import shutil
-import tempfile
-from typing import Any, TYPE_CHECKING, TypeVar, Generator
+import shutil, tempfile, hashlib, os
+from typing import (Any, TYPE_CHECKING, TypeVar, Generator, Generic)
 from uuid import uuid4
 
-from lute import get_logger
+from lute import get_logger, LogMsg
 
 from .types import (
     PublicationDisposition, RefreshOutcome, RefreshStatus,
@@ -25,7 +23,7 @@ if TYPE_CHECKING:
 
 mlog = get_logger(__name__)
 T = TypeVar("T")
-
+PhaseT = TypeVar('PhaseT', bound=(str | StrEnum))
 
 def fingerprint(path: Path, deadline: Deadline) -> str:
     digest = hashlib.sha256()
@@ -80,19 +78,20 @@ def publish(
                 raise PublicationError("Original changed before replacement")
             deadline.check("publication replacement")
             os.replace(sibling, dst)
-    except Exception as error:
+    except Exception as e:
         context = dict(
             original_path=dst, recovery_path=staged,
             temporary_path=sibling, backup_path=backup,
         )
-        if isinstance(error, WorkbookControllerError):
-            error.add_context(**context)
+        if isinstance(e, WorkbookControllerError):
+            e.add_context(**context)
             raise
-        raise PublicationError("Workbook publication failed", **context) from error
+        raise PublicationError("Workbook publication failed", **context) from e
     return backup
 
 
-class WorkbookTransaction:
+class WorkbookTransaction(Generic[PhaseT]):
+    phase: str | PhaseT
     def __init__(self, owner: BaseController, path: Path, deadline: Deadline) -> None:
         self.owner = owner
         self.original_path = path
@@ -118,8 +117,10 @@ class WorkbookTransaction:
 
     def error_context(self) -> dict[str, object]:
         return dict(
-            phase=self.phase, operation_id=self.operation_id,
-            original_path=self.original_path, staged_path=self.staged_path,
+            phase=self.phase, 
+            operation_id=self.operation_id,
+            original_path=self.original_path, 
+            staged_path=self.staged_path,
             recovery_path=self.staged_path if self._retain else None,
             pid=self.owner._pid,
             last_timestamp=self.last_timestamp,
@@ -190,6 +191,9 @@ class WorkbookTransaction:
         directory.rmdir()
 
     def commit(self) -> PublicationDisposition:
+        """
+        - handles saving, closing, and publishing (optional)
+        """
         if self._committed:
             raise WorkbookIOError("Workbook transaction already committed")
         self.phase = "save"
@@ -217,6 +221,7 @@ class WorkbookTransaction:
         *,
         skip_reason: str | None = None,
         cooldown_remaining_seconds: float = 0,
+        message: str | LogMsg | None=None
     ) -> RefreshOutcome[T]:
         if status == RefreshStatus.REFRESHED and not self._committed:
             raise WorkbookIOError("A refreshed outcome requires a committed workbook")
@@ -227,12 +232,19 @@ class WorkbookTransaction:
             self._close()
             self.deadline.check(self.phase)
         return RefreshOutcome(
-            status=status, path=self.original_path, operation_id=self.operation_id,
-            started_at=self.started_at, ended_at=self.owner._now(),
+            status=status, 
+            path=self.original_path, 
+            operation_id=self.operation_id,
+            started_at=self.started_at, 
+            ended_at=self.owner._now(),
             elapsed_seconds=self.deadline.clock() - self.started_monotonic,
-            previous_refreshed_at=previous, refreshed_at=refreshed,
-            publication=self.publication, details=details, skip_reason=skip_reason,
+            previous_refreshed_at=previous, 
+            refreshed_at=refreshed,
+            publication=self.publication, 
+            details=details, 
+            skip_reason=skip_reason,
             cooldown_remaining_seconds=cooldown_remaining_seconds,
+            message=message
         )
 
     def __exit__(self, exc_type: Any, exc: Any, tb: Any) -> bool:

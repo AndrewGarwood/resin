@@ -6,7 +6,8 @@ from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
 from pyqi import BaseStrEnum, export
-from typing import (Protocol, TypeVar, Generic, TypeAlias, Callable, Any, Self)
+from lute import LogMsg
+from typing import (TypeVar, Generic)
 
 class ControllerState(BaseStrEnum):
     """
@@ -78,6 +79,7 @@ class RefreshOutcome(Generic[TDetails]):
     details: TDetails
     skip_reason: str | None = None
     cooldown_remaining_seconds: float = 0.0
+    message: str | LogMsg | None = None
 
 __all__ = export(
     ControllerState, RefreshStatus, 
