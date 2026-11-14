@@ -2,6 +2,7 @@
 *`@file`* `ao/_options`
 """
 from dataclasses import dataclass
+from pathlib import Path
 from typing import (Any, Self, TypedDict, Required)
 from pyqi import (Json, fs, require, Array, export)
 from lute import LogMsg
@@ -12,14 +13,9 @@ from resin._workbook.types import StagingPolicy
 from .constants import (COM_ADD_IN_NAME, DEFAULT_AO_DATASOURCE)
 
 
-# =============================================================================
-# Unfortunately cannot have TypedDicts inherit from one another....
-# So, kinda unoptimal usage/implementation here
-# =============================================================================
-
-class ControllerOptionsDict(TypedDict, total=False):
+class ControllerOptionsDict(BaseControllerOptionsDict, total=False):
     """
-    `(TypedDict, total=False)`
+    `(BaseControllerOptionsDict, total=False)`
     ```
     # ==== BaseControllerOptionsDict ====
     staging: str
@@ -34,13 +30,6 @@ class ControllerOptionsDict(TypedDict, total=False):
     default_ds_alias: str
     ```
     """
-    staging: Required[str]
-    staging_policy: str | StagingPolicy
-    stage_roots: list[str]
-    cooldown_seconds: float
-    poll_seconds: float
-    startup_timeout_seconds: float
-
     addin_name: str
     ds_alias: str
 
@@ -55,7 +44,7 @@ class ControllerOptions(BaseControllerOptions):
     def from_dict(
         cls, 
         data: (ControllerOptionsDict  
-            | BaseControllerOptionsDict
+            | BaseControllerOptionsDict # redundant but get type error without
             | dict[str, Any]
         ), 
         /,

@@ -7,7 +7,6 @@ from pyqi import (Json, require, export)
 from lute import LogMsg
 
 
-
 class ConnectionOptionsDict(TypedDict, total=False):
     """ `TypedDict, total=False` """
     name: Required[str]
@@ -74,5 +73,14 @@ class ConnectionIdentity:
     planning_area: str | None = None
     server_url: str | None = None
     connstr: str | None = None
+
+    @classmethod
+    def from_options(cls, options: ConnectionOptions, /):
+        return cls(
+            name=options.name,
+            planning_area=options.planning_area,
+            server_url=options.server_url,
+            connstr=options.connstr
+        )
 
 __all__ = export(ConnectionOptions, ConnectionOptionsDict)

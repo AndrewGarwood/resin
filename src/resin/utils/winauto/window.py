@@ -13,7 +13,7 @@ from . import control
 from .exceptions import AutomationError
 from pywinauto import Application
 from pywinauto.base_wrapper import BaseWrapper
-from pyqi import (FlexStr, require, Array, String, export)
+from pyqi import (FlexStr, require, Array, String, export, Arbitrary, resolve_arbitrary)
 
 import lute
 LogMsg = lute.LogMsg
@@ -82,7 +82,7 @@ def dump_class(
                 **element_info(w)
             ))
         except Exception as e:
-            mlog.warning(LogMsg.err(e, f"<failed to inspect popup menu>"))
+            mlog.warning(LogMsg.err(e, f"<failed to inspect {class_name}>"))
     return None
 
 
@@ -90,9 +90,10 @@ def find_available_control(
     window: BaseWrapper,
     /,
     title: str,
-    ctrl_types: tuple[control.ControlClass, ...],
+    ctrl_types: Arbitrary[control.ControlClass],
     require_unique: bool=True
 ) -> BaseWrapper:
+    ctrl_types = resolve_arbitrary(ctrl_types)
     matches: list[BaseWrapper] = []
     try:        
         for control_type in ctrl_types:
@@ -117,7 +118,7 @@ def find_available_control(
             ))
         return candidates[0]
     except Exception as e:
-        raise Exception(LogMsg.err(
+        raise RuntimeError(LogMsg.err(
             e,
             title=title,
             ctrl_types=ctrl_types,
@@ -158,7 +159,7 @@ def find_window_by_title(
             ))
         return matches[0]
     except Exception as e:
-        raise Exception(LogMsg.err(
+        raise RuntimeError(LogMsg.err(
             e,
             title=title,
             require_unique=require_unique,

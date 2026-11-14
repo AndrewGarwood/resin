@@ -8,7 +8,7 @@ from pathlib import Path
 import shutil, tempfile, hashlib, os
 from typing import (Any, TYPE_CHECKING, TypeVar, Generator, Generic)
 from uuid import uuid4
-
+import win32com.client as win32
 from lute import get_logger, LogMsg
 
 from .types import (
@@ -102,7 +102,7 @@ class WorkbookTransaction(Generic[PhaseT]):
         self.started_monotonic = deadline.clock()
         self.phase = "staging"
         self.last_timestamp: datetime | None = None
-        self._wb: Any = None
+        self._wb: win32.CDispatch | None = None
         self._directory: Path | None = None
         self._baseline: str | None = None
         self._committed = False
@@ -110,7 +110,7 @@ class WorkbookTransaction(Generic[PhaseT]):
         self.publication = PublicationDisposition.NOT_ATTEMPTED
 
     @property
-    def wb(self) -> Any:
+    def wb(self) -> win32.CDispatch:
         if self._wb is None:
             raise WorkbookIOError("Workbook handle is not open")
         return self._wb

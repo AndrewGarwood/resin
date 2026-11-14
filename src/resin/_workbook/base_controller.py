@@ -9,8 +9,9 @@ import time, threading
 from pywintypes import com_error
 from contextlib import (contextmanager, ExitStack)
 from pathlib import Path
-from pyqi import (require)
+from pyqi import (require, Json)
 from lute import LogMsg, get_logger
+from noxl.engines.xlcom.session import (ExcelSession)
 from .types import (StagingPolicy, ControllerState)
 from .base_controller_options import (BaseControllerOptions, BaseControllerOptionsDict)
 from .exceptions import (
@@ -18,7 +19,7 @@ from .exceptions import (
     WorkbookControllerError, WorkbookIOError
 )
 from resin.utils import runtime
-from ._session_model import (SessionFactory, Session, default_session_factory)
+from ._session_model import (SessionFactory, default_session_factory)
 from .deadline import (Deadline)
 
 if TYPE_CHECKING:
@@ -40,9 +41,10 @@ _FATAL_HRESULTS = frozenset([
 ])
 
 class BaseController():
+    _session: ExcelSession | None
     def __init__(
         self,
-        options: BaseControllerOptions | BaseControllerOptionsDict,
+        options: BaseControllerOptions | Json.ObjectSource[BaseControllerOptionsDict],
         session_factory: SessionFactory | None = None,
         clock: Callable[[], float] = time.monotonic,
         sleep: Callable[[float], None] = time.sleep,
@@ -51,16 +53,12 @@ class BaseController():
     ):
         """
         - *`@param`* `session_factory` `() -> Session | None`
-            - will default to `(function) default_session_factory() -> ExcelSession`
+            - will default to `(function) default_session_factory() -> noxl.ExcelSession`
             - used as `context manager` arg in `stack.enter_context`
         """
-        self.options = (
-            BaseControllerOptions.from_dict(options) 
-            if isinstance(options, dict) 
-            else options
-        )
+        self.options = BaseControllerOptions.from_any(options)
         self._session_factory = session_factory or default_session_factory
-        self._session: Session | None = None
+        self._session: ExcelSession | None = None
         self._state = ControllerState.NEW
         self._clock, self._sleep, self._pump, self._now = clock, sleep, pump, now
         self._owner_thread: int | None = None
@@ -88,7 +86,7 @@ class BaseController():
             raise WorkbookControllerError("Controller used from a different thread")
 
     @property
-    def session(self) -> Session:
+    def session(self) -> ExcelSession:
         self._check_thread()
         if self._session is None or self._state not in _SESSION_ACCESSIBLE_STATES:
             raise DeadSessionError("Controller has no usable Excel session")
@@ -256,7 +254,8 @@ class BaseController():
                 raise
             wrapped = DeadSessionError if self.is_fatal(e) else WorkbookIOError
             raise wrapped(
-                f"Workbook operation failed during {txn.phase}", **context
+                f"Workbook operation failed during {txn.phase}", 
+                **context
             ) from e
         finally:
             self._busy = False

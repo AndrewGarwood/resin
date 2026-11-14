@@ -2,8 +2,7 @@
 *`@file`* `ibp/types`
 """
 from __future__ import annotations
-from typing import (Any, TypeVar, TypedDict)
-
+from typing import (Any)
 from pyqi import BaseStrEnum, export
 
 class RefreshMethod(BaseStrEnum):
@@ -17,7 +16,6 @@ class RefreshMethod(BaseStrEnum):
     """
     API = "api"
     PYWINAUTO = "pywinauto"
-
 
 class ConnectionMode(BaseStrEnum):
     """

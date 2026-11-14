@@ -2,7 +2,7 @@
 *`@file`* `ao/workbook_options`
 """
 from pathlib import Path
-from typing import (Any, Callable, Iterable, Mapping, TypedDict, Required)
+from typing import (Any, Callable, Iterable, Mapping, TypedDict, Required, Self)
 from pyqi import (Json, fs, io, SpreadsheetFileExt, require, export)
 from noxl.engines.pyxl import find_header
 from lute import LogMsg
@@ -39,18 +39,37 @@ class WorkbookOptions(Json.Serial[WorkbookOptionsDict]):
         self,
         path: fs.StrPath,
         id: str | None = None,
-        ds_alias: str=DEFAULT_AO_DATASOURCE,
+        ds_alias: str | None=None,
         columns: list[str] | None = None,
         set_prompts: bool = False
     ):
         self.path = fs.to_path(path)
         self._id = id
         self.ds_alias = require.non_empty_string(
-            ds_alias, 
+            ds_alias or DEFAULT_AO_DATASOURCE, 
             'ao.WorkbookOptions.ds_alias'
         )
         self._columns = columns
         self.set_prompts = set_prompts
+
+    @classmethod
+    def from_dict(cls, data: WorkbookOptionsDict | dict[str, Any], /) -> Self:
+        try:
+            return cls(
+                path=fs.to_path(data['path']),
+                id=data.get('id'),
+                ds_alias=data.get('ds_alias'),
+                columns=data.get('columns'),
+                set_prompts=data.get('set_prompts', False)
+            )
+        except (ValueError, KeyError): raise
+        except Exception as e:
+            raise RuntimeError(LogMsg.err(
+                e, 
+                f"Failed to construct ao.WorkbookOptions from dictionary",
+                received=Json.serialize(data)
+            ))
+
 
     @property
     def pathstem(self):

@@ -18,7 +18,7 @@ from .locks import EXPORT_UI_LM
 from .utils import (open_grid_context_menu_pywinauto, resolve_native_save_options)
 from .dialog import (handle_export_dialog)
 
-
+# TODO: try invoking context menu without pywinauto by selecting a cell first;
 
 @EXPORT_METHOD_REGISTRY.register(ExportMethod.CONTEXT_MENU)
 def via_context_menu(

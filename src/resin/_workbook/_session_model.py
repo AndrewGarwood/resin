@@ -5,6 +5,7 @@
 from pathlib import Path
 from pyqi import export
 from typing import (Protocol, TypeAlias, Callable, Any, Self)
+from noxl.engines.xlcom import ExcelSession
 
 class Session(Protocol):
     @property
@@ -38,7 +39,7 @@ class Session(Protocol):
     def wait_for_idle(self, timeout_seconds: int=900, poll_seconds: float=2.0): ...
 
 
-SessionFactory: TypeAlias = Callable[[], Session]
+SessionFactory: TypeAlias = Callable[[], ExcelSession]
 
 def default_session_factory():
     from noxl.engines.xlcom.session import ExcelSession
@@ -49,6 +50,5 @@ def default_session_factory():
         enable_events=True,
         kill_on_exit=True
     )
-
 
 __all__ = export(Session, "SessionFactory", default_session_factory)

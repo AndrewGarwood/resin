@@ -19,7 +19,8 @@ from resin._workbook import (
     parse_refresh_timestamp
 )
 from resin.models import _field
-from ._options import (WorkbookOptions, ControllerOptions, ControllerOptionsDict)
+from ._options import (ControllerOptions, ControllerOptionsDict)
+from .workbook_options import (WorkbookOptions)
 from .types import (
     AoCmd, AoCommandError, AoMacro, AoProp, AoRefreshDetails, AoResponseCode, AoResponseTup,
     RefreshActiveStatus, WorkbookProperty,
@@ -32,7 +33,7 @@ from .utils import (
     is_busy as ao_is_busy, to_error_tuple, require_ao_bool, _probe_macro_readiness,
     error_is_clear
 )
-from pyqi import (Array, fs, require, safe, guard, Function)
+from pyqi import (Array, fs, require, safe, guard, Function, Json)
 from lute import LogMsg, get_logger
 
 mlog = get_logger(__file__, name_depth=1)
@@ -46,7 +47,7 @@ _UNRESOLVED = {
 
 class Controller(BaseController):
     def __init__(self,
-        options: fs.StrPath | ControllerOptions | ControllerOptionsDict,
+        options: ControllerOptions | Json.ObjectSource[ControllerOptionsDict],
         /,
         *,
         session_factory: SessionFactory | None = None,
@@ -55,16 +56,9 @@ class Controller(BaseController):
         pump: Callable[[], None] = runtime.pump_waiting_messages,
         now: Callable[[], datetime] = datetime.now,
     ):
-        self.options = (
-            options 
-            if isinstance(options, ControllerOptions) 
-            else ControllerOptions.from_config(options)
-        )
-        # self._ao_clock = clock
-        # self._ao_sleep = sleep
-        # self._ao_pump = pump
+        self.options = ControllerOptions.from_any(options)
         super().__init__(
-            options=self.options.get_base_options(),
+            options=self.options,
             session_factory=session_factory,
             clock=clock, 
             sleep=sleep, 
