@@ -35,6 +35,17 @@ def inspect_descendants(item: BaseWrapper, /) -> None:
         mlog.debug(msg)
 
 def element_info(el: Any, /) -> ElementInfoDict:
+    """
+    `ElementInfoDict`
+    ```
+    window_text: str | None
+    class_name: str | None
+    handle: int | str | None
+    rectangle: Any | None
+    is_visible: bool | str | None
+    is_enabled: bool | str | None
+    ```
+    """
     return ElementInfoDict(
         window_text=repr(safe.invoke_method(el, "window_text")),
         class_name=repr(safe.invoke_method(el, "class_name")),

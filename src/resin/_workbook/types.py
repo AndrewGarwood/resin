@@ -73,7 +73,7 @@ class RefreshOutcome(Generic[TDetails]):
     started_at: datetime
     ended_at: datetime
     elapsed_seconds: float
-    previous_refreshed_at: datetime | None
+    last_refreshed_at: datetime | None
     refreshed_at: datetime | None
     publication: PublicationDisposition
     details: TDetails

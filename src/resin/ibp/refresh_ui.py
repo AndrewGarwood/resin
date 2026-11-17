@@ -16,7 +16,7 @@ class RefreshUI(Protocol):
         worksheet: Any,
         pid: int,
         path: Path,
-        backend: winauto.DesktopBackend,
+        backend: winauto.DesktopBackend | None,
         deadline: Deadline
     ) -> None: ...
 
@@ -26,9 +26,7 @@ class RibbonRefreshUI(RefreshUI):
         self,
         ribbon_tab_title: str = IBP_RIBBON_TITLE,
         refresh_btn_title: str = "Refresh",
-        ribbon_title: str = "Ribbon",
     ) -> None:
-        self.ribbon_title = ribbon_title
         self.ribbon_tab_title = ribbon_tab_title
         self.refresh_btn_title = refresh_btn_title
 
@@ -38,13 +36,13 @@ class RibbonRefreshUI(RefreshUI):
         worksheet: Any, 
         pid: int, 
         path: Path, 
-        backend: winauto.DesktopBackend, 
+        backend: winauto.DesktopBackend | None, 
         deadline: Deadline
     ) -> None:
         deadline.check("IBP Refresh UI activation")
         workbook.Activate()
         worksheet.Activate()
-        _, window = winauto.attach_to_process_window(
+        _, window = winauto.window.attach_process(
             pid, 
             path.name, 
             backend=backend, 
@@ -57,7 +55,7 @@ class RibbonRefreshUI(RefreshUI):
         try: window.restore() # type: ignore
         except Exception: pass
         window.set_focus()
-        tab = winauto.find_available_control(
+        tab = winauto.window.find_available_control(
             window,
             title=self.ribbon_tab_title,
             ctrl_types=(
@@ -69,7 +67,7 @@ class RibbonRefreshUI(RefreshUI):
         tab.wait_for_idle()
         tab.click_input()
         deadline.check("Find refresh button")
-        refresh_btn = winauto.find_available_control(
+        refresh_btn = winauto.window.find_available_control(
             window, 
             title=self.refresh_btn_title,
             ctrl_types=winauto.CommonControl.BUTTON

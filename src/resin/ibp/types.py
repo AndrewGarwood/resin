@@ -5,23 +5,12 @@ from __future__ import annotations
 from typing import (Any)
 from pyqi import BaseStrEnum, export
 
-class RefreshMethod(BaseStrEnum):
-    """
-    **deprecated** b/c just gonna use a prop in ControllerOptions like 
-    is_api_enabled or api_configuration
-    ```
-    API = "api"
-    PYWINAUTO = "pywinauto"
-    ```
-    """
-    API = "api"
-    PYWINAUTO = "pywinauto"
 
 class ConnectionMode(BaseStrEnum):
     """
     ```
-    WORKBOOK = "workbook"
-    ANCHOR = "anchor"
+    WORKBOOK = "workbook" # call ibp.Connect() in each workbook refreshed during within the controller's lifetime 
+    ANCHOR = "anchor" # create temp workbook, call ibp.Connect() once (assumes all workbooks use same connection)
     ```
     """
     WORKBOOK = "workbook"
@@ -59,4 +48,4 @@ class WorkbookProperty(BaseStrEnum):
         return value
 
 
-__all__ = export(RefreshMethod, ConnectionMode, WorkbookProperty)
+__all__ = export(ConnectionMode, WorkbookProperty)

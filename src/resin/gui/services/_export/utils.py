@@ -9,7 +9,7 @@ from resin.utils.winauto import (
     dump_class, 
     DesktopBackend, 
     wait_for_class, 
-    WindowClass, 
+    Win32Window, 
     AutomationError, 
     is_owned_by
 )
@@ -135,7 +135,7 @@ def open_grid_context_menu_pywinauto(
     *, 
     timeout: float=2.0,
     backend: DesktopBackend | str = DesktopBackend.WIN32,
-    menu_class: WindowClass | str = WindowClass.POPUP 
+    menu_class: Win32Window | str = Win32Window.POPUP 
 ) -> None:
     
     with warnings.catch_warnings():

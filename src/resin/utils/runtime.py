@@ -70,6 +70,9 @@ def validate_polling(
     timeout: float,
     poll_interval: float,
 ) -> tuple[float, float]:
+    """
+    *`@returns`* `(timeout, poll_interval)`
+    """
     checked_timeout = float(
         require.positive_number(
             timeout,

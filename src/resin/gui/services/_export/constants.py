@@ -3,7 +3,7 @@
 """
 from typing import Iterable
 from resin.utils.winauto import (
-    ControlOptions, WindowClass, CommonControl
+    ControlOptions, CommonControl, Win32Window
 )
 from pywinauto.base_wrapper import (BaseWrapper)
 
@@ -32,7 +32,7 @@ OVERWRITE_CONFIRM_BUTTON_TITLES = [
     "Yes", "&Yes", "Replace", "&Replace", "OK"
 ]
 DEFAULT_SAVE_DIALOG_OPTIONS = ControlOptions(
-    class_name=WindowClass.DIALOG,
+    class_name=Win32Window.DIALOG,
     title_re=SAVE_DIALOG_TITLE_PATTERN
 )
 
@@ -44,7 +44,7 @@ DEFAULT_SAVE_BUTTON_OPTIONS = ControlOptions(
     title_re=SAVE_BUTTON_PATTERNS
 )
 DEFAULT_OVERWRITE_DIALOG_OPTIONS = ControlOptions(
-    class_name=WindowClass.DIALOG,
+    class_name=Win32Window.DIALOG,
     title_re=OVERWRITE_DIALOG_TITLE_PATTERNS
 )
 DEFAULT_OVERWRITE_CONFIRM_BUTTON_OPTIONS = ControlOptions(

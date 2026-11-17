@@ -5,25 +5,29 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any, Callable, Generator, Self, TypeVar
 from uuid import uuid4
-import shutil, threading, time, warnings
+import shutil, threading, time
 from contextlib import contextmanager
 import win32com.client as win32
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
 from lute import LogMsg
-from pyqi import (Json, Array, fs, guard)
+from pyqi import (Json, Array, fs, guard, dt, export)
 from noxl.engines.xlcom.session import ExcelSession
 from noxl.engines.xlcom.workbook import ManagedName
 
 from resin._workbook.transaction import WorkbookTransaction
-from .constants import (IBP_COM_ADDIN_NAME)
+from resin._workbook.types import PublicationDisposition
+from .constants import (
+    VERSION_WARNING_WINDOW_TITLE
+)
 from .types import (ConnectionMode, WorkbookProperty)
 from .binding import (BindingState, BindingObservation, BindingVerifier)
 from resin.utils import winauto, runtime
+from pywinauto.controls.hwndwrapper import (DialogWrapper)
 from resin._workbook import (
-    ConnectionBindingError, ConfigurationError, BaseController, Deadline, BaseControllerOptions,
-    RefreshOutcome, RefreshStatus, SessionFactory, StagingPolicy, 
-    cooldown_remaining, parse_refresh_timestamp, default_session_factory
+    ConnectionBindingError, ConfigurationError, BaseController, Deadline,
+    RefreshOutcome, RefreshStatus, SessionFactory,
+    cooldown_remaining, parse_refresh_timestamp
 )
 from .global_configuration import (GlobalConfiguration, GlobalConfigurationDict)
 from .connection_options import (ConnectionOptions, ConnectionIdentity, ConnectionOptionsDict)
@@ -35,13 +39,26 @@ EXCEL_UI_LOCK = threading.RLock()
 T = TypeVar("T")
 
 
+@dataclass(frozen=True)
+class RefreshDetails():
+    requested_connection: ConnectionIdentity
+    observed_connection: ConnectionIdentity | None
+    connect_called: bool
+    binding_reused: bool | None = None
+    publication: PublicationDisposition = PublicationDisposition.NOT_ATTEMPTED
+
+
 class Controller(BaseController):
+    """
+    *`@extends`* `BaseController`
+    """
     options: ControllerOptions
     connection_options: ConnectionOptions
     api_config: GlobalConfiguration
-    ui: RefreshUI | None
-    backend: winauto.DesktopBackend
+    ui: RefreshUI
+    backend: winauto.DesktopBackend | None
     session_factory: SessionFactory | None
+    # _ui: RefreshUI | None
     _session: ExcelSession | None
     _ibp: win32.CDispatch | None
     _anchor: win32.CDispatch | None
@@ -56,7 +73,7 @@ class Controller(BaseController):
         api_config: GlobalConfiguration | Json.ObjectSource[GlobalConfigurationDict],
         binding_verifier: BindingVerifier | None = None,
         ui: RefreshUI | None = None,
-        backend: winauto.DesktopBackend = winauto.DesktopBackend.UIA,
+        backend: winauto.DesktopBackend | None = None,
         session_factory: SessionFactory | None = None,
         clock: Callable[[], float] = time.monotonic,
         sleep: Callable[[float], None] = time.sleep,
@@ -66,9 +83,13 @@ class Controller(BaseController):
     ):
         self.options = ControllerOptions.from_any(options)
         self.connection_options = ConnectionOptions.from_any(connection_options)
-        self.api_config = GlobalConfiguration.from_any(api_config) if api_config else GlobalConfiguration()
-        self.ui = ui
-        self.backend = winauto.DesktopBackend.resolve(backend)
+        self.api_config = (
+            GlobalConfiguration.from_any(api_config) 
+            if api_config 
+            else GlobalConfiguration()
+        )
+        self.ui = ui or RibbonRefreshUI()
+        self.backend = backend
         self._verifier = binding_verifier
         self._ibp = None
         self._anchor = None # anchor wb win32.CDispatch
@@ -116,6 +137,11 @@ class Controller(BaseController):
             raise ConnectionBindingError("IBP add-in is unavailable")
         return self._ibp
 
+    # @property
+    # def ui(self) -> RefreshUI:
+    #     if (self._ui is None):
+    #         raise RuntimeError(LogMsg(f"self._ui is undefined"))
+    #     return self._ui
     
     def __enter__(self) -> Self:
         super().__enter__()
@@ -171,8 +197,18 @@ class Controller(BaseController):
             self._ensure_binding(self._anchor, ws, deadline, force_connect=True)
     
     def _ensure_binding(
-        self, wb: Any, ws: Any, deadline: Deadline, *, force_connect: bool = False,
+        self, 
+        wb: win32.CDispatch, 
+        ws: win32.CDispatch, 
+        deadline: Deadline, 
+        *, 
+        force_connect: bool = False,
     ) -> tuple[ConnectionIdentity, ConnectionIdentity, bool]:
+        """
+        *`@returns`* 
+        `(requested, observed, connected) = tuple[ConnectionIdentity, ConnectionIdentity, bool]`
+        - `connected (bool)` - whether `self.ibp.Connect(<connection_name>)` was called
+        """
         deadline.check("connection verification")
         requested = self._requested(wb)
         if self._verifier is not None:
@@ -183,6 +219,8 @@ class Controller(BaseController):
                 return requested, observation.identity, False
         deadline.check("IBP Connect")
         result = self.ibp.Connect(requested.name)
+        deadline.check("Closing warning window if exists")
+        self._handle_version_warning()
         self.wait_for_idle(deadline)
         observation = self._observe(wb, ws, requested, result)
         deadline.check("post-Connect verification")
@@ -191,8 +229,27 @@ class Controller(BaseController):
         self._identity = observation.identity
         return requested, observation.identity, True
 
+    def _handle_version_warning(
+        self, 
+        title: str=VERSION_WARNING_WINDOW_TITLE, 
+        /,
+    ):
+        warning_dlg = winauto.window.find(
+            title, 
+            strict=False, 
+            expected_wrapper=DialogWrapper
+        )
+        if (not warning_dlg): 
+            return False
+        warning_dlg.close()
+        return True
+    
     def _observe(
-        self, wb: win32.CDispatch, ws: win32.CDispatch, requested: ConnectionIdentity, connect_result: Any,
+        self, 
+        wb: win32.CDispatch, 
+        ws: win32.CDispatch, 
+        requested: ConnectionIdentity, 
+        connect_result: Any,
     ) -> BindingObservation:
         if self._verifier is None:
             # Without installed-version proof, never reuse or interpret GetConnections.
@@ -213,8 +270,7 @@ class Controller(BaseController):
             raise ConnectionBindingError(
                 "installed IBP binding verification failed"
             ) from e
-        if (
-            not isinstance(observation, BindingObservation) 
+        if (not isinstance(observation, BindingObservation) 
             or not isinstance(observation.state, BindingState)
         ):
             raise ConnectionBindingError("binding verifier returned an invalid observation")
@@ -272,9 +328,8 @@ class Controller(BaseController):
         with self._property_workbook(wb) as opened:
             return format_value(ManagedName.ref_range_value(opened, str(prop)))
 
-
     @contextmanager
-    def _property_workbook(self, wb: Any) -> Generator[Any]:
+    def _property_workbook(self, wb: win32.CDispatch | WorkbookOptions) -> Generator[win32.CDispatch]:
         if isinstance(wb, (WorkbookOptions, str, Path)):
             path = wb.path if isinstance(wb, WorkbookOptions) else fs.to_path(wb)
             with self.operation(path) as txn:
@@ -322,7 +377,9 @@ class Controller(BaseController):
             if current is not None and (previous is None or current > previous):
                 if current != observed:
                     observed, changed_at = current, txn.deadline.clock()
-                if changed_at is not None and txn.deadline.clock() - changed_at >= self.options.stable_seconds:
+                if (changed_at is not None 
+                    and txn.deadline.clock() - changed_at >= self.options.stable_seconds
+                    ):
                     return current
             else:
                 observed, changed_at = None, None
@@ -336,7 +393,7 @@ class Controller(BaseController):
         *,
         timeout_minutes: float = 30,
         force: bool=False
-    ):
+    ) -> RefreshOutcome[RefreshDetails]:
         wbo = (
             workbook if isinstance(workbook, WorkbookOptions) 
             else WorkbookOptions(fs.to_path(workbook))
@@ -351,15 +408,37 @@ class Controller(BaseController):
                 previous = self._timestamp(txn.wb)
                 txn.last_timestamp = previous
                 requested = self._requested(txn.wb)
+                now_dt = self._now()
                 remaining = cooldown_remaining(
                     previous, 
-                    self._now(), 
+                    now_dt, 
                     self.options.cooldown_seconds, 
                     force=force
                 )
                 if remaining > 0:
-                    # return here
-                    raise NotImplementedError
+                    return txn.outcome(
+                        RefreshStatus.SKIPPED_COOLDOWN, 
+                        last_refreshed_at=previous, 
+                        refreshed_at=previous,
+                        details=RefreshDetails(
+                            requested_connection=requested, 
+                            observed_connection=None, 
+                            connect_called=False, 
+                            binding_reused=None
+                        ),
+                        skip_reason="positive remaining cooldown",
+                        cooldown_remaining_seconds=remaining,
+                        message=LogMsg(
+                            f"Refresh attempted within cooldown period and {force=}.",
+                            attempted_at=now_dt.isoformat(),
+                            last_refreshed_at=(
+                                previous.isoformat() 
+                                if previous is not None 
+                                else "<unavailable>"
+                            ),
+                            remaining=dt.seconds_to.minsecstr(remaining)
+                        )
+                    )
                 txn.phase = "IBP Connection"
                 requested, observed, connected =self._ensure_binding(
                     txn.wb, 
@@ -379,3 +458,51 @@ class Controller(BaseController):
                 )
                 txn.phase = "IBP refresh dispatch"
                 txn.deadline.check(txn.phase)
+                refreshed_at: datetime
+                try:
+                    if (self.api_config.refresh_enabled):
+                        self.ibp.Refresh()
+                    else:
+                        self.ui.refresh(
+                            workbook=txn.wb, 
+                            worksheet=ws, 
+                            pid=self.session.pid,
+                            path=txn.staged_path,
+                            backend=self.backend,
+                            deadline=txn.deadline
+                        )
+                    txn.phase = "IBP refresh completion"
+                    refreshed_at = self._wait_timestamp(txn, completion_baseline)
+                except BaseException as e:
+                    self.invalidate(e)
+                    raise
+            dispo = txn.commit()
+            return txn.outcome(
+                RefreshStatus.REFRESHED,
+                last_refreshed_at=previous, 
+                refreshed_at=refreshed_at,
+                details=RefreshDetails(
+                    requested, 
+                    observed, 
+                    connected, 
+                    not connected, 
+                    dispo
+                ),
+                cooldown_remaining_seconds=self.options.cooldown_seconds,
+                message=LogMsg(
+                    "Successfully refreshed IBP workbook",
+                    workbook=wbo.path.name,
+                    refreshed_at=refreshed_at.isoformat(),
+                    last_refreshed_at=(
+                        previous.isoformat() 
+                        if previous is not None 
+                        else "<unavailable>"
+                    ),
+                    next_refresh_available_at=(
+                        refreshed_at 
+                        + timedelta(seconds=self.options.cooldown_seconds)
+                    ).isoformat()
+                )
+            )
+
+__all__ = export(Controller, RefreshDetails)

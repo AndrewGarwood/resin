@@ -2,9 +2,17 @@
 *`@file`* `resin/utils/winauto/types`
 """
 from __future__ import annotations
-from typing import (Any, TypedDict)
+from typing import (Any, TypedDict, Protocol)
+from pywinauto.base_wrapper import BaseWrapper
 from pyqi import BaseStrEnum, export
 
+
+class ElementSelector(Protocol):
+    """
+    *`@protocol`* for `(list[Any]) -> (Any)`
+    """
+    def __call__(self, elements: list[Any], /) -> Any: 
+        ...
 
 class DesktopBackend(BaseStrEnum):
     """
@@ -26,5 +34,6 @@ class ElementInfoDict(TypedDict, total=False):
 
 __all__ = export(
     DesktopBackend, 
-    ElementInfoDict
+    ElementInfoDict,
+    ElementSelector
 )

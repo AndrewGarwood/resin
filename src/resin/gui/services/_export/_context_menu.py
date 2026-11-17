@@ -11,7 +11,7 @@ from resin.gui.models import (ExportMethod, ExportOptions)
 from resin.gui.core import Session
 from resin.gui.models._export.result import ExportDetails
 from resin.gui.utils import (wait_for_component, gui_id as GUI)
-from resin.utils.winauto import (WindowClass)
+from resin.utils.winauto import (Win32Window)
 from .registry import (EXPORT_METHOD_REGISTRY)
 from .watcher import (native_save_dialog_watcher, NativeSaveDialogOptions)
 from .locks import EXPORT_UI_LM
@@ -60,7 +60,7 @@ def via_context_menu(
                     main_wnd_handle=wnd_handle, 
                     grid_handle=grid_handle, 
                     backend=save_options.backend,
-                    menu_class=options.invoke.menu_element_class or WindowClass.POPUP
+                    menu_class=options.invoke.menu_element_class or Win32Window.POPUP
                 )
                 time.sleep(0.5)
                 grid.select_context_menu_item(menu_item_id)

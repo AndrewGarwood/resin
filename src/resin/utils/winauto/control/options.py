@@ -14,7 +14,6 @@ class ControlOptionsDict(TypedDict, total=False):
     title: Arbitrary[str]
     visible_only: bool
 
-
 class ControlOptions(Json.Serial[ControlOptionsDict]):
     """
     *`@extends`* `Serial[ControlOptionsDict]`
@@ -64,7 +63,7 @@ class ControlOptions(Json.Serial[ControlOptionsDict]):
     #     return {}
 
     @classmethod
-    def from_dict(cls, data: ControlOptionsDict | dict[str, Any]) -> Self:
+    def from_dict(cls, data: ControlOptionsDict | dict[str, Any], /) -> Self:
         return cls(
             class_name=data.get('class_name'),
             title_re=data.get('title_re'),

@@ -47,6 +47,9 @@ class GlobalConfigurationDict(TypedDict, total=False):
 
 @dataclass(frozen=True)
 class GlobalConfiguration(Json.Serial[GlobalConfigurationDict]):
+    """
+    *`@extends`* `Json.Serial[GlobalConfigurationDict]`
+    """
     EXCEL_PLANNING_VIEW_APIS: PlanningViewPermissionLevel = PlanningViewPermissionLevel.NONE
     EXCEL_MASTER_DATA_APIS: MasterDataPermissionLevel = MasterDataPermissionLevel.NONE
 
@@ -62,7 +65,7 @@ class GlobalConfiguration(Json.Serial[GlobalConfigurationDict]):
         )
 
     @property
-    def api_refresh_enabled(self):
+    def refresh_enabled(self):
         return (self.EXCEL_MASTER_DATA_APIS in AUTHORIZED_TO_REFRESH)
 
 

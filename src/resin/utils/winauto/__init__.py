@@ -2,17 +2,24 @@
 *`@module`* `utils/winauto/__init__`
 """
 
-# might be worth it moving this to separate package
+# should make separate package
 from .debug import *
 from .exceptions import *
 
-from .control import *
 from .control import (
     is_available as control_is_available, 
     generate_key as generate_control_key,
-    Win32Window as WindowClass
 )
+from .control.types import *
+from .control.options import *
 from .types import *
 from .watcher import *
-from .window import *
+from . import (window, control)
+from .window._find import (
+    find as find_window,
+    by_spec as find_window_by_spec
+)
+from .window._process import (
+    attach_process as attach_process_to_window
+)
 from .ownership import *

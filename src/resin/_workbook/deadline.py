@@ -66,6 +66,7 @@ def cooldown_remaining(
 ) -> float:
     """
     *`@returns`* cooldown remaining time in `seconds`
+    - `0.0` if `previous is None` or `force==True`
     """
     cooldown = require.positive_number(seconds)
     if not isinstance(force, bool):

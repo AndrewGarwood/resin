@@ -15,7 +15,6 @@ from threading import (Event, Thread)
 from resin.utils.runtime import com_apartment
 from pywinauto import Desktop
 from pywinauto.base_wrapper import BaseWrapper
-from resin.utils.winauto.control.types import ControlState
 from resin.utils.winauto.watcher import (NativeDialogWatcher)
 from resin.utils import winauto
 from resin.utils.winauto import (
@@ -23,7 +22,6 @@ from resin.utils.winauto import (
     AutomationError, 
     control_is_available, 
     DesktopBackend, 
-    WindowClass, 
     window,
     is_owned_by, 
     iter_owner_chain,
