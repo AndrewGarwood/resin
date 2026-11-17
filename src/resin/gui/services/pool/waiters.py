@@ -48,7 +48,7 @@ def wait_for_commands(
 
     if errors:
         formatted = ", ".join(
-            f"{transaction_id}: {error}"
+            f"(Transaction {transaction_id}): {error}"
             for transaction_id, error in errors
         )
         raise SessionPoolError(

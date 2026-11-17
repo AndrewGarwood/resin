@@ -1,7 +1,6 @@
 """
 *`@file`* `gui/services/pool/provisioner`
 
-
 ```
 provisioner = SessionProvisioner(
     SessionProvisionerOptions(
@@ -11,17 +10,9 @@ provisioner = SessionProvisioner(
         close_created_sessions_on_exit=True,
         close_bootstrap_session_on_exit=False,
     ),
-    launcher=launch_sap_gui,
+    launcher=default_sap_gui_launcher,
 )
-
-pool, provisioning = SessionPool.provisioned(
-    provisioner
-)
-
-with pool:
-    results = pool.run(transactions)
 ```
-
 """
 from __future__ import annotations
 from collections.abc import Callable
@@ -30,7 +21,7 @@ import time
 from pyqi import (export)
 from lute import LogMsg, get_logger
 
-from resin.gui.com import runtime
+from resin.utils import runtime
 from resin.gui.com.gateway import ComGateway
 from resin.gui.core.application import Application
 from resin.gui.core.connection import Connection

@@ -6,9 +6,14 @@ from typing import Callable
 from pyqi import Array, export
 from pywinauto import Application
 from resin.utils.winauto import (
-    dump_class, DesktopBackend, 
-    wait_for_class, WindowClass, AutomationError
+    dump_class, 
+    DesktopBackend, 
+    wait_for_class, 
+    WindowClass, 
+    AutomationError, 
+    is_owned_by
 )
+
 from resin.gui.models import (ExportOptions, LayoutSelector)
 from resin.gui.components import (GridView)
 from resin.gui.core.session import (Session)

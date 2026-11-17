@@ -7,7 +7,6 @@ import time
 from typing import TYPE_CHECKING, Any, Literal, TypeVar, overload
 from win32com.client import CDispatch
 
-from resin.utils.runtime import validate_polling
 from ..com.gateway import ComGateway
 from ..com.types import DispatchLike
 from ..components.factory import wrap_dispatch
@@ -20,7 +19,7 @@ from ..exceptions import (
 )
 from pyqi import (require, Function, safe)
 from lute import LogMsg, annotate
-from resin.gui.com import runtime
+from resin.utils import runtime
 from resin.gui.utils import (gui_id as GUI, SupportsSet)
 from ..utils.mixin import (FindMixin)
 
@@ -227,8 +226,7 @@ class Session(FindMixin):
 
     def get_status(self) -> str:
         """ *`@returns`* `safe.readattr(self, "status")` """
-        return safe.readattr(self, "status")
-
+        return safe.to_str(safe.readattr(self, "status"))
 
     def press_button(
         self,
@@ -481,7 +479,7 @@ class Session(FindMixin):
         timeout: float = 60.0,
         poll_interval: float = 0.05,
     ) -> Session:
-        timeout, poll_interval = validate_polling(timeout, poll_interval)
+        timeout, poll_interval = runtime.validate_polling(timeout, poll_interval)
 
         deadline = time.monotonic() + timeout
         while True:
@@ -560,7 +558,12 @@ class Session(FindMixin):
         if component is found within deadline 
         """
         return runtime.poll_until(
-            Function.Deferred(self.find, component_id, _raise=_raise, component_cls=component_cls), 
+            Function.Deferred(
+                self.find, 
+                component_id, 
+                _raise=_raise, 
+                component_cls=component_cls
+            ), 
             timeout=timeout, 
             poll_interval=poll_interval, 
             description=f"session.find({component_id})",

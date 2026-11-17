@@ -25,5 +25,6 @@ class ElementInfoDict(TypedDict, total=False):
     is_enabled: bool | str | None
 
 __all__ = export(
-    DesktopBackend, ElementInfoDict
+    DesktopBackend, 
+    ElementInfoDict
 )

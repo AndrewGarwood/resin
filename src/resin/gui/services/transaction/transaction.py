@@ -9,6 +9,7 @@ from pyqi.models import StageTransition, Telemetry, Flow
 from pyqi import (fs, require, dt, safe, export, Array)
 from lute import LogMsg, get_logger, annotate
 from pyqi.models._result import Result
+from resin.utils import (default_copy_to_clipboard)
 from resin.gui.components.control import (TextField,  CheckBox)
 from resin.gui.models.transaction.multiscreen import ScreenStep
 from resin.models._field import (
@@ -29,7 +30,9 @@ from .field_operation import (
     _FieldOperation, _SelectRadio, _SetCheckbox, _SetText, _SetMultiSelection
 )
 from .multi_selection import (
-    is_multi_selection_value, prepare_multi_selection, apply_multi_selection
+    is_multi_selection_value, 
+    prepare_multi_selection, 
+    apply_multi_selection
 )
 from copy import deepcopy
 from .. import _export as ExportService
@@ -60,15 +63,20 @@ class Transaction(Flow[TransactionStage]):
     """ 
     injection for executing transaction (e.g. if have different SAPGUI setup or something) 
     """
-
+    copy_to_clipboard: Callable[[str], None] | None
+    """
+    used in apply_multi_selection for mutliple single values
+    """
     def __init__(
         self, 
         options: TransactionOptions, 
         /,
         _id: fs.StrPath | None = None,
+        *,
         extract_id_from_path: Callable[[Path], str] | None = default_id_extractor,
         strict: bool = True,
-        execute_fn: Callable[[Self, Session], Any] | None = None
+        execute_fn: Callable[[Self, Session], Any] | None = None,
+        copy_to_clipboard: Callable[[str], None] | None = default_copy_to_clipboard
     ): 
         self.strict = strict
         self.execute_fn = execute_fn
@@ -98,6 +106,7 @@ class Transaction(Flow[TransactionStage]):
         self._state_lock = threading.RLock()
         self._state_changed = threading.Condition(self._state_lock)
         self.last_status: str | None = None
+        self.copy_to_clipboard = copy_to_clipboard
 
     @property
     def id(self) -> str:
@@ -426,13 +435,15 @@ class Transaction(Flow[TransactionStage]):
         elif is_sentinel_value_dict(value):
             sentinel = SentinelKey.resolve(value['sentinel'])
         if sentinel == SentinelKey.RADIO_BUTTON_SELECT:
-            if field_type != 'rad' or GUI.stem(field_id) == 'rad':
+            if (field_type != 'rad' or GUI.stem(field_id) == 'rad'):
                 raise ValueError("Radio selection requires a radio field ID containing its option")
-            if isinstance(value, dict) and value.keys() != {'sentinel'}:
-                raise ValueError("Radio selection does not support additional options")
+            # if isinstance(value, dict) and value.keys() != {'sentinel'}:
+            #     raise ValueError("Radio selection does not support additional options")
             return _SelectRadio(field_id)
         if field_type in ('txt', 'ctxt'):
-            if value is not None and not isinstance(value, (str, int, float, bool)):
+            if (value is not None 
+                and not isinstance(value, (str, int, float, bool))
+                ):
                 raise TypeError("Text fields require a scalar string, number, boolean, or None")
             return _SetText(field_id, "" if value is None else str(value))
         if field_type == 'chk':
@@ -457,7 +468,7 @@ class Transaction(Flow[TransactionStage]):
         elif isinstance(operation, _SelectRadio):
             session.select_radio_option(operation.field_id)
         elif isinstance(operation, _SetMultiSelection):
-            apply_multi_selection(session, operation)
+            apply_multi_selection(session, operation, self.copy_to_clipboard)
         else: # should be unreachable
             raise ValueError(LogMsg(f"Invalid FieldOperation {str(operation)}"))
 
@@ -596,13 +607,13 @@ class Transaction(Flow[TransactionStage]):
             self.export_tel.stop()
             path = self.get_export_path()
             if (path.exists()):
-                proc = fs.find_process_by_open_file(path, by_filename=True)
-                if (proc is not None):
-                    msg = f"Closed process holding exported file = {bool(fs.kill_procs([proc]))}"
-                    mlog.debug(msg)
-                    result.add_note(msg)
-                else:
-                    mlog.debug(f"Did not find process holding exported file")
+                _killed_proc = fs.kill_process_by_open_file(
+                    path,
+                    by_filename=True
+                )
+                msg = f"Closed process holding exported file = {_killed_proc}"
+                mlog.debug(msg)
+                result.add_note(msg)
         self._export_result = result
         self._transition(
             set([TransactionStage.READY_TO_EXPORT, TransactionStage.EXPORTING]),

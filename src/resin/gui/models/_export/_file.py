@@ -7,6 +7,7 @@ from dataclasses import dataclass
 from typing import (Any, Self, TypedDict, Optional, Literal)
 from pyqi import (Json, export, dt, fs, require)
 from lute import LogMsg
+import sys
 
 class FileOptionsDict(TypedDict, total=False):
     outdir: str
@@ -52,22 +53,45 @@ class FileOptions(Json.Serial[FileOptionsDict]):
         *args,
         ref_date: dt.DateValue | Literal['none', 'today'] | None = None,
         how_apply_ref: fs.RenameOperation | Literal['auto'] = fs.RenameOperation.REPLACE,
-        dt_fmt: str=dt.FormatString.YMD_DOT, 
+        dt_fmt: str | None=None, 
         **kwargs
     ) -> Path:
         """
         - `if ref_date` resolves to `date`, applies it to construct modifed `pathstr` from `self.path.parent` `self.path.name`
         - then applies `pathstr.format(*args, **kwargs)`
         """
-        pathstr = str(self.path)
+        return FileOptions.get_formatted_path(
+            *args, 
+            path=self.path, 
+            ref_date=ref_date, 
+            how_apply_ref=how_apply_ref, 
+            dt_fmt=dt_fmt, 
+            **kwargs
+        )
+
+    @staticmethod
+    def get_formatted_path(
+        *args,
+        path: Path,
+        ref_date: dt.DateValue | Literal['none', 'today'] | None = None,
+        how_apply_ref: fs.RenameOperation | Literal['auto'] = fs.RenameOperation.REPLACE,
+        dt_fmt: str | None=None, 
+        **kwargs
+    ) -> Path:
+        """
+        - `if ref_date` resolves to `date`, applies it to construct modifed `pathstr` from `self.path.parent` `self.path.name`
+        - then applies `pathstr.format(*args, **kwargs)`
+        """
+        dt_fmt = dt_fmt or dt.FormatString.YMD_DOT
+        pathstr = str(path)
         ref: date | None = (
             None if (ref_date is None or ref_date == 'none') 
             else dt.today() if ref_date == 'today' 
             else dt.resolve_date(ref_date)
         )
         if (ref is not None):
-            pathdir = dt.resolve_optional_date_code(ref, str(self.path.parent))
-            namestr = fs.dated_filename(self.path.name, ref=ref, how=how_apply_ref, fmt=dt_fmt)
+            pathdir = dt.resolve_optional_date_code(ref, str(path.parent))
+            namestr = fs.dated_filename(path.name, ref=ref, how=how_apply_ref, fmt=dt_fmt)
             pathstr = "\\".join((pathdir, namestr))
         pathstr = pathstr.format(*args, **kwargs)
         return Path(pathstr)

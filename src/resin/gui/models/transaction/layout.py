@@ -5,13 +5,10 @@
 here if don't want to put it in Transaction.fields
 - (if gets overriden by a default layout, must use _export._layout.LayoutSelector)
 """
-from datetime import date
-from pathlib import Path
-from dataclasses import dataclass, replace
-from typing import (Self, TypedDict, Required, NotRequired, Any, Optional, Mapping, TypeAlias, Literal)
-from pyqi import (String, Json, export, Result, dt, fs, require)
+from dataclasses import dataclass
+from typing import (Self, TypedDict, Any, )
+from pyqi import (Json, export, require)
 from lute import LogMsg
-from ...utils import gui_id as GUI
 
 class LayoutOptionsDict(TypedDict):
     field_id: str

@@ -153,11 +153,15 @@ class ValueOptions(Json.Serial[ValueOptionsDict]):
     exclude: MultiSelection | None = None
     @classmethod
     def from_dict(
-        cls, data: ValueOptionsDict | dict[str, Any], /, *, resolve: bool = False
+        cls, 
+        data: ValueOptionsDict | dict[str, Any], 
+        /, 
+        *, 
+        resolve: bool = False
     ) -> Self:
         """Parse options; use resolve=False only for already evaluated definitions."""
         try:
-            _include_val = data.get('include')
+            _include_val = data.get('include', data.get('values', None))
             _exclude_val = data.get('exclude')
             return cls(
                 include=(

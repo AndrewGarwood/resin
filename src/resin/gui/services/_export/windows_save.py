@@ -9,9 +9,8 @@ from pyqi import (require)
 from pyqi.models import (RetryOptions, )
 from lute import LogMsg, get_logger
 from pywinauto import Desktop
-from pywinauto.base_wrapper import BaseWrapper
 from resin.utils.winauto import (DesktopBackend, 
-    ControlOptions, AutomationError, WindowClass, CommonControl
+    ControlOptions, AutomationError
 )
 mlog = get_logger(__file__, name_depth=2)
 
@@ -26,7 +25,8 @@ def handle_overwrite(
     for pat in dlg_ctrl._title_patterns:
         try:
             dlg = desktop.window(
-                class_name=dlg_ctrl.class_name, title_re=pat
+                class_name=dlg_ctrl.class_name, 
+                title_re=pat
             )
             if (not dlg.exists(timeout=timeout)): continue
             for btn_title in btn_ctrl._titles:

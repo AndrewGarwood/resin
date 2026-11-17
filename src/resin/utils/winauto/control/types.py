@@ -109,6 +109,10 @@ class Win32Window(BaseStrEnum):
 
 
 __all__ = export(
-    "ControlKey", "ControlClass", ControlState, CommonControl, UiaControl, 
-    Win32Control, Win32Window
+    "ControlKey", "ControlClass", 
+    ControlState, 
+    CommonControl, 
+    UiaControl, 
+    Win32Control, 
+    Win32Window
 )

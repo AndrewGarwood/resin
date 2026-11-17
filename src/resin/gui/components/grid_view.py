@@ -33,35 +33,39 @@ class GridView(Shell):
 
     @busy_safe()
     def press_toolbar_button(self, button_id: str) -> GridView:
-        self._com.PressToolbarButton(button_id)
+        self._resolve().PressToolbarButton(button_id)
         return self
 
     @busy_safe()
     def press_toolbar_context_button(self, button_id: str):
         """ `'&MB_EXPORT'` """
-        self._com.PressToolbarContextButton(button_id)
+        self._resolve().PressToolbarContextButton(button_id)
         return self
+
+    @busy_safe()
+    def select_all(self):
+        self._resolve().SelectAll()
     
     def press_enter(self):
-        self._com.PressEnter()
+        self._resolve().PressEnter()
         return self
     
     def clear_selection(self):
-        self._com.ClearSelection()
+        self._resolve().ClearSelection()
         return self
     
     def click(self, row: int, col: str):
-        self._com.Click(row, col)
+        self._resolve().Click(row, col)
         return self
     
     def double_click(self, row: int, col: str):
-        self._com.DoubleClick(row, col)
+        self._resolve().DoubleClick(row, col)
         return self
 
     @property
     def row_count(self) -> int:
         return self._gateway.get_property(
-            self._com, 
+            self._resolve(), 
             "RowCount", 
             int, 
             _raise=True
@@ -76,7 +80,7 @@ class GridView(Shell):
         return self._gateway.get_property(self._com, "ColumnOrder", _raise=True)
 
     def _get_cell_value(self, row: int, column: str, /, ignore_case: bool=True) -> str:
-        cell_value = str(self._com.GetCellValue(row, column))
+        cell_value = str(self._resolve().GetCellValue(row, column))
         return cell_value.casefold() if ignore_case else cell_value
     
     def select_row(self, row: int, column: str):
@@ -95,7 +99,7 @@ class GridView(Shell):
     ) -> Optional[int]:
         target = str(value).casefold() if ignore_case else str(value)
         if iter_reverse:
-            for row in range(self._com.RowCount, 0, -1):
+            for row in range(self._resolve().RowCount, 0, -1):
                 if self._get_cell_value(row, column, ignore_case) == target:
                     return row
         else: 
@@ -107,12 +111,19 @@ class GridView(Shell):
     def find_rows(self, column: str, value: str, *, ignore_case: bool=True) -> list[int]:
         target = str(value).casefold() if ignore_case else str(value)
         matches: list[int] = []
-        for row in range(self._com.RowCount):
+        for row in range(self._resolve().RowCount):
             if self._get_cell_value(row, column, ignore_case) == target:
                 matches.append(row)
         return matches
     
-    def select_row_by_value(self, column: str, value: str, *, ignore_case: bool=True, iter_reverse: bool=False):
+    def select_row_by_value(
+        self, 
+        column: str, 
+        value: str, 
+        *, 
+        ignore_case: bool=True, 
+        iter_reverse: bool=False
+    ):
         """ searches for and clicks row. GridView might close in sapgui, so return none... """
         row = self.find_row(column, value, ignore_case=ignore_case, iter_reverse=iter_reverse)
         if row is None:

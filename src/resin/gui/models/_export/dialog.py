@@ -2,7 +2,7 @@
 *`@file`* `gui/models/_export/dialog`
 """
 
-from dataclasses import dataclass, replace
+from dataclasses import dataclass
 from typing import (TypedDict, Any)
 from pyqi import (Json, export)
 from lute import LogMsg

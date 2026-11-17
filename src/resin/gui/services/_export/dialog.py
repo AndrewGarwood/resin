@@ -4,14 +4,15 @@
 or windowsnative save dialog
 """
 from __future__ import annotations
+import time
 from pyqi import export
 from resin.gui.components.control import Button
 from resin.gui.models import (ExportOptions)
 from resin.gui.components import (TextField)
 from resin.gui.core.session import (Session)
 from resin.gui.utils import (wait_for_component)
-
 from .watcher import (NativeSaveDialogWatcher)
+from .constants import (NATIVE_SAVE_DIALOG_TIMEOUT)
 
 from lute import (LogMsg, get_logger)
 mlog = get_logger(__file__)
@@ -51,43 +52,72 @@ def _try_sapgui_dialog(session: Session, options: ExportOptions, /) -> bool:
     return False
 
 
-
 def handle_export_dialog(
-    session: Session, 
-    options: ExportOptions, 
-    watcher: NativeSaveDialogWatcher, 
+    session: Session,
+    options: ExportOptions,
+    watcher: NativeSaveDialogWatcher,
     /,
+    *,
+    timeout: float = NATIVE_SAVE_DIALOG_TIMEOUT,
 ) -> None:
-    handled = _try_native_dialog(options, watcher, timeout=5.0)
-    if (handled): 
-        return None
-    handled = _try_sapgui_dialog(session, options)
-    if (handled):
-        mlog.debug(f"Handled SAPGUI export dialog")
-        return None
-    mlog.debug(LogMsg(f"SAPGUI dialog not detected, waiting for watcher. . ."))
-    handled = _try_native_dialog(options, watcher, timeout=30.0)
-    if (not handled):
-        raise TimeoutError(LogMsg(
-            f"Watcher timeout exceeded, no export dialog handled"
-        ))
-    return None
+    deadline = time.monotonic() + timeout
+    if watcher.wait_handled(timeout=min(5.0, timeout)):
+        return
+    if watcher.error is not None:
+        raise RuntimeError(
+            "Native save dialog watcher terminated unexpectedly"
+        ) from watcher.error
 
+    if _try_sapgui_dialog(session, options):
+        return
+    remaining = max(0.0, deadline - time.monotonic())
+    if watcher.wait_handled(timeout=remaining):
+        return
+    if watcher.error is not None:
+        raise RuntimeError(
+            "Native save dialog watcher failed"
+        ) from watcher.error
+    raise TimeoutError(
+        f"No export dialog was handled within {timeout:.1f} seconds"
+    )
+# def handle_export_dialog(
+#     session: Session, 
+#     options: ExportOptions, 
+#     watcher: NativeSaveDialogWatcher, 
+#     /,
+#     *,
+#     timeout: float = 30.0,
+# ) -> None:
+#     deadline = time.monotonic() + timeout
+#     handled = _try_native_dialog(options, watcher, timeout=5.0)
+#     if (handled): 
+#         return None
+#     handled = _try_sapgui_dialog(session, options)
+#     if (handled):
+#         mlog.debug(f"Handled SAPGUI export dialog")
+#         return None
+#     mlog.debug(LogMsg(f"SAPGUI dialog not detected, waiting for watcher. . ."))
+#     handled = _try_native_dialog(options, watcher, timeout=10.0)
+#     if (not handled):
+#         raise TimeoutError(LogMsg(
+#             f"Watcher timeout exceeded, no export dialog handled"
+#         ))
+#     return None
 
-def _try_native_dialog(
-    options: ExportOptions, 
-    watcher: NativeSaveDialogWatcher, 
-    /,
-    timeout:float = 30.0
-) -> bool:
-    if (watcher.wait_handled(timeout=timeout)):
-        mlog.debug(f"Native save dialog handled by watcher within {timeout=}s")
-        return True
-    if (options.file.exists()):
-        mlog.debug(f"outpath already exists; treating as completed")
-        watcher.mark_handled()
-        return True
-    return False
+# def _try_native_dialog(
+#     options: ExportOptions, 
+#     watcher: NativeSaveDialogWatcher, 
+#     /,
+#     timeout:float = 30.0
+# ) -> bool:
+#     if (watcher.wait_handled(timeout=timeout)):
+#         mlog.debug(f"Native save dialog handled by watcher within {timeout=}s")
+#         return True
+#     if (options.file.exists()):
+#         mlog.debug(f"outpath already exists; treating as completed")
+#         watcher.mark_handled()
+#         return True
+#     return False
 
 
 __all__ = export(handle_export_dialog)

@@ -2,15 +2,16 @@
 *`@file`* `gui/models/transaction/options`
 """
 from dataclasses import dataclass, field, replace
+from pathlib import Path
 from typing import (Mapping, Self, TypedDict, Required, Any)
-from pyqi import (Json, export, Array)
+from pyqi import (Json, export, Array, fs, dt)
 from lute import LogMsg
 
 from .enums import (ExecutionType)
 from .layout import (LayoutOptions, LayoutOptionsDict)
 from .variant import (VariantOptions, VariantOptionsDict)
 from .multiscreen import (ScreenFieldSelectionDict, ScreenFieldSelection)
-from .._export import (ExportOptions, ExportOptionsDict)
+from .._export import (ExportOptions, ExportOptionsDict, FileOptions)
 
 
 class TransactionOptionsDict(TypedDict, total=False):
@@ -85,5 +86,35 @@ class TransactionOptions(Json.Serial[TransactionOptionsDict]):
         _result_fields: dict[str, Any] = {} if not copy_existing else { **self.fields }
         _result_fields.update(fields)
         return replace(self, fields=_result_fields, screens=list(self.screens))
+
+    def set_export_path(
+        self, 
+        path: fs.StrPath | None = None, 
+        /, 
+        *, 
+        ref_date: dt.DateValue | None,
+        dt_fmt: str | None = None
+    ) -> Path:
+        if (not self.export):
+            raise ValueError(LogMsg(f"self.export (ExportOptions) is undefined"))
+
+        if (not self.export.file):
+            if (not path):
+                raise ValueError(LogMsg(f"path must be defined when self.export.file is undefined"))
+            self.export.file = FileOptions(
+                path=FileOptions.get_formatted_path(
+                    path=fs.to_path(path), 
+                    ref_date=ref_date, 
+                    dt_fmt=dt_fmt
+                )
+            )
+        else:
+            self.export.file.path = FileOptions.get_formatted_path(
+                path=fs.to_path(path or self.export.file.path),
+                ref_date=ref_date,
+                dt_fmt=dt_fmt
+            )
+        
+        return self.export.file.path
 
 __all__ = export(TransactionOptions, TransactionOptionsDict)

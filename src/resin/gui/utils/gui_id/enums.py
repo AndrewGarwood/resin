@@ -18,6 +18,7 @@ class VKey(BaseIntEnum):
     SHIFT_F3 = 15
     SHIFT_F4 = 16
     SHIFT_F5 = 17
+    SHIFT_F12 = 24
     CTRL_S = 11
     CTRL_F9 = 33
     CTRL_F11 = 35
@@ -79,6 +80,14 @@ class ComboTextFieldTabId(BaseStrEnum):
     INCLUDE_INTERVAL = "INTL"
     EXCLUDE_SINGLE_VALUE = "NOSV"
     EXCLUDE_INTERVAL = "NOINT"
+    
+    @classmethod
+    def single_value_tab_ids(cls):
+        return (cls.INCLUDE_SINGLE_VALUE, cls.EXCLUDE_SINGLE_VALUE)
+
+    @classmethod
+    def interval_tab_ids(cls):
+        return (cls.INCLUDE_INTERVAL, cls.EXCLUDE_INTERVAL)
 
 class ComboTextFieldTabIndex(BaseStrEnum):
     """

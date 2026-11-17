@@ -4,10 +4,19 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field as _field
-from typing import (Any, Callable, Iterable, TypeAlias)
+from typing import (Any, Callable, Iterable, TypeAlias, Sequence)
 from pyqi import (export)
 from pyqi.models import (RetryOptions)
-from resin.utils.winauto import (DesktopBackend, ControlOptions)
+from resin.utils.winauto import (
+    DesktopBackend, 
+    ControlOptions, 
+    ControlClass, 
+    CommonControl, 
+    control_is_available,
+    inspect_descendants,
+    describe_window,
+    find_available_control
+)
 from .constants import (
     DEFAULT_OVERWRITE_CONFIRM_BUTTON_OPTIONS, 
     DEFAULT_OVERWRITE_DIALOG_OPTIONS, 
@@ -16,8 +25,25 @@ from .constants import (
     DEFAULT_SAVE_EDIT_OPTIONS,
     default_dialog_selector
 )
+# def _find_filename_edit(dialog):
+#     candidates = [
+#         control
+#         for control in (dialog if isinstance(dialog, Sequence) else dialog.descendants(class_name=CommonControl.EDIT.value))
+#         if control_is_available(control)
+#     ]
+#     by_control_id = [
+#         control
+#         for control in candidates
+#         if control.control_id() == 1148
+#     ]
 
+#     if len(by_control_id) == 1:
+#         return by_control_id[0]
 
+#     raise RuntimeError(
+#         f"Unable to uniquely identify filename edit; "
+#         f"found {len(candidates)} available Edit controls"
+#     )
 
 
 DialogControl: TypeAlias = Any

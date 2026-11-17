@@ -1,13 +1,10 @@
 """
 *`@file`* `gui/models/transaction/variant`
 """
-from datetime import date
-from pathlib import Path
-from dataclasses import dataclass, replace
-from typing import (Self, TypedDict, Required, NotRequired, Any, Optional, Mapping, TypeAlias, Literal)
-from pyqi import (String, Json, export, Result, dt, fs)
+from dataclasses import dataclass
+from typing import (Self, TypedDict, Any)
+from pyqi import (Json, export)
 from lute import LogMsg
-from ...utils import gui_id as GUI
 
 
 class VariantOptionsDict(TypedDict):

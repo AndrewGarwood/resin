@@ -7,6 +7,9 @@ from resin.utils.winauto import (
 )
 from pywinauto.base_wrapper import (BaseWrapper)
 
+NATIVE_SAVE_DIALOG_TIMEOUT = 300.0
+NATIVE_SAVE_DIALOG_POLL = 0.25
+
 SAVE_BUTTON_PATTERNS = [
     r"^.*Save.*$",
     r"^&Save$",
