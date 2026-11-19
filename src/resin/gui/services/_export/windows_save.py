@@ -15,7 +15,7 @@ from resin.utils.winauto import (DesktopBackend,
 mlog = get_logger(__file__, name_depth=2)
 
 def handle_overwrite(
-    backend: DesktopBackend, 
+    backend: DesktopBackend | None, 
     dlg_ctrl: ControlOptions, 
     btn_ctrl: ControlOptions, 
     *, 

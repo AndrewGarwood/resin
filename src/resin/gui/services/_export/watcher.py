@@ -8,7 +8,7 @@ import win32gui
 from pathlib import Path
 from contextlib import contextmanager
 from typing import (Any, Iterable)
-from pyqi import (Array, LockManager, require, Function, fs)
+from pyqi import (Array, require, Function, fs)
 from pyqi.models import RetryOptions
 from lute import LogMsg, get_logger, annotate
 from threading import (Event, Thread)
@@ -21,11 +21,7 @@ from resin.utils.winauto import (
     inspect_descendants, 
     AutomationError, 
     control_is_available, 
-    DesktopBackend, 
-    window,
     is_owned_by, 
-    iter_owner_chain,
-    find_window_by_title
 )
 from .constants import (NATIVE_SAVE_DIALOG_POLL, NATIVE_SAVE_DIALOG_TIMEOUT)
 from .locks import NATIVE_DIALOG_HANDLE_LM

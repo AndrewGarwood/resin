@@ -6,12 +6,10 @@ from typing import Callable
 from pyqi import Array, export
 from pywinauto import Application
 from resin.utils.winauto import (
-    dump_class, 
     DesktopBackend, 
-    wait_for_class, 
     Win32Window, 
     AutomationError, 
-    is_owned_by
+    window
 )
 
 from resin.gui.models import (ExportOptions, LayoutSelector)
@@ -134,7 +132,7 @@ def open_grid_context_menu_pywinauto(
     grid_handle: int,
     *, 
     timeout: float=2.0,
-    backend: DesktopBackend | str = DesktopBackend.WIN32,
+    backend: DesktopBackend | str | None = None,
     menu_class: Win32Window | str = Win32Window.POPUP 
 ) -> None:
     
@@ -155,14 +153,14 @@ def open_grid_context_menu_pywinauto(
         y = rect.top + 100
         grid.click_input(button="right", coords=(x - rect.left, y - rect.top))
         time.sleep(0.5)
-        menu = wait_for_class(
+        menu = window.wait_for_class(
             backend=backend, 
             class_name=menu_class, 
             visible_only=True,
             timeout=timeout
         )
         if (menu is None):
-            dump_class(backend=backend, class_name=menu_class, visible_only=True)
+            window.dump_class(backend=backend, class_name=menu_class, visible_only=True)
             raise AutomationError(LogMsg(
                 f"Failed to open context menu from GridView",
             )) 
@@ -171,4 +169,8 @@ def open_grid_context_menu_pywinauto(
 
 
 
-__all__ = export(handle_layout_selection, select_export_menu_item, attempt_row_count)
+__all__ = export(
+    handle_layout_selection, 
+    select_export_menu_item, 
+    attempt_row_count
+)

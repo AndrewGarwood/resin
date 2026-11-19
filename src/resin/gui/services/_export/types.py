@@ -10,12 +10,6 @@ from pyqi.models import (RetryOptions)
 from resin.utils.winauto import (
     DesktopBackend, 
     ControlOptions, 
-    ControlClass, 
-    CommonControl, 
-    control_is_available,
-    inspect_descendants,
-    describe_window,
-    find_available_control
 )
 from .constants import (
     DEFAULT_OVERWRITE_CONFIRM_BUTTON_OPTIONS, 
@@ -46,7 +40,6 @@ from .constants import (
 #     )
 
 
-DialogControl: TypeAlias = Any
 
 @dataclass
 class NativeSaveDialogOptions:
@@ -57,7 +50,7 @@ class NativeSaveDialogOptions:
     overwrite_dialog: ControlOptions = _field(default=DEFAULT_OVERWRITE_DIALOG_OPTIONS)
     overwrite_btn: ControlOptions = _field(default=DEFAULT_OVERWRITE_CONFIRM_BUTTON_OPTIONS)
     retry: RetryOptions = _field(default_factory=RetryOptions)
-    backend: DesktopBackend = DesktopBackend.WIN32
+    backend: DesktopBackend | None = None
 
 
-__all__ = export("DialogControl", NativeSaveDialogOptions)
+__all__ = export(NativeSaveDialogOptions)

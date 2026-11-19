@@ -24,7 +24,7 @@ class NativeDialogWatcher(ABC, Generic[T]):
     handled: bool = False
     timed_out: bool = False
     error: Optional[BaseException] = None
-    backend: DesktopBackend = DesktopBackend.WIN32
+    backend: DesktopBackend | None = None
     
     # @property
     # def outpath(self) -> Path:
