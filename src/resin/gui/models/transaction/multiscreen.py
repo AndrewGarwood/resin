@@ -36,6 +36,7 @@ class ScreenStep(Json.Serial[ScreenStepDict]):
         except Exception as e:
             raise RuntimeError(LogMsg.err(e, received=Json.serialize(data))) from e
 
+
 class ScreenFieldSelectionDict(TypedDict, total=False):
     step_in: ScreenStepDict | None # default to F5 ?
     fields: dict[str, Any]

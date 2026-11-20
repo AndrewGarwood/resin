@@ -13,7 +13,7 @@ class SaveDialogDict(TypedDict, total=False):
     filename_field_id: str
     confirm_button_id: str
 
-@dataclass
+# @dataclass
 class SaveDialog(Json.Serial[SaveDialogDict]):
     """
     ```
@@ -51,5 +51,8 @@ class SaveDialog(Json.Serial[SaveDialogDict]):
     #         "filename_field_id": self.filename_field_id,
     #         "confirm_button_id": self.confirm_button_id
     #     }
+    def __str__(self):
+        return super().__str__()
+
 
 __all__ = export(SaveDialogDict, SaveDialog)

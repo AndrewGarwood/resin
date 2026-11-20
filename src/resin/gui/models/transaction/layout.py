@@ -33,5 +33,13 @@ class LayoutOptions(Json.Serial[LayoutOptionsDict]):
     def variant(self): # temp for backwards compatibility
         return self.name
 
+    def to_dict(self) -> LayoutOptionsDict | dict[str, Any]:
+        return {
+            "field_id": self.field_id,
+            "name": self.name
+        }
+    def __str__(self):
+        return super().__str__()
+
 
 __all__ = export(LayoutOptions, LayoutOptionsDict)

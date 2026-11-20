@@ -70,6 +70,10 @@ class LayoutSelector(Json.Serial[LayoutSelectorDict]):
             )
         except Exception as e:
             raise Exception(LogMsg.err(error=e, received=Json.serialize(data))) from e
+    
+    def __str__(self):
+        return super().__str__()
+
 
 
 __all__ = export(LayoutSelector, LayoutSelectorDict)

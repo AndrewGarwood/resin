@@ -4,17 +4,16 @@
 from datetime import date
 from pathlib import Path
 from dataclasses import dataclass
-from typing import (Any, Self, TypedDict, Optional, Literal)
+from typing import (Any, Self, TypedDict, Literal)
 from pyqi import (Json, export, dt, fs, require)
 from lute import LogMsg
-import sys
 
 class FileOptionsDict(TypedDict, total=False):
     outdir: str
     name: str
     path: str
 
-@dataclass
+# @dataclass
 class FileOptions(Json.Serial[FileOptionsDict]):
     """
     *`@extends`* `Json.Serial[FileOptionsDict]`
@@ -27,9 +26,9 @@ class FileOptions(Json.Serial[FileOptionsDict]):
     _path: Path
     def __init__(
         self,
-        path: Optional[fs.StrPath]=None,    
-        outdir: Optional[fs.StrPath]=None,    
-        name: Optional[str]=None,
+        path: fs.StrPath | None=None,    
+        outdir: fs.StrPath | None=None,    
+        name: str | None=None,
     ):
         if (path and not outdir and not name):
             path = fs.to_path(path)
@@ -127,7 +126,7 @@ class FileOptions(Json.Serial[FileOptionsDict]):
                 _how = fs.RenameOperation.resolve(_how)
             return cls(
                 path=data.get("path"),
-                outdir=data.get("outdir"),
+                outdir=(data.get('dir') or data.get('parent') or data.get("outdir")),
                 name=data.get("name"),
             )
         except Exception as e:
@@ -142,6 +141,9 @@ class FileOptions(Json.Serial[FileOptionsDict]):
             "name": self.name,
             "outdir": str(self.dir)
         }
+    def __str__(self):
+        return super().__str__()
+
 
     def exists(self):
         """ *`@returns`* `self.outpath.is_file()`"""

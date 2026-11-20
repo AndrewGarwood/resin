@@ -75,4 +75,18 @@ class ExportOptions(Json.Serial[ExportOptionsDict]):
             **kwargs
         )
 
+    def to_dict(self) -> ExportOptionsDict | dict[str, Any]:
+        return {
+            "method": str(self.method),
+            "layout": None if self.layout is None else self.layout.to_dict(),
+            "invoke": None if self.invoke is None else self.invoke.to_dict(),
+            "file": None if self.file is None else self.file.to_dict(),
+            "save": None if self.save is None else self.save.to_dict(),
+            "overwrite": self.overwrite
+        }
+    
+    def __str__(self):
+        return super().__str__()
+
+
 __all__ = export(ExportOptions, ExportOptionsDict)

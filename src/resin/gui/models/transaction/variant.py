@@ -24,11 +24,20 @@ class VariantOptions(Json.Serial[VariantOptionsDict]):
     created_by: str
     """ user id """
     @classmethod
-    def from_dict(cls, data: VariantOptionsDict | dict[str, Any]) -> Self:
+    def from_dict(cls, data: VariantOptionsDict | dict[str, Any], /) -> Self:
         return cls(
             name=data['name'],
             created_by=data['created_by']
         )
+
+    def to_dict(self) -> VariantOptionsDict | dict[str, Any]:
+        return {
+            "name": self.name,
+            "created_by": self.created_by
+        }
+
+    def __str__(self):
+        return super().__str__()
 
 
 __all__ = export(VariantOptionsDict, VariantOptions)

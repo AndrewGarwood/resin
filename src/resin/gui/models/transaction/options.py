@@ -70,7 +70,11 @@ class TransactionOptions(Json.Serial[TransactionOptionsDict]):
                 screens=Array.map(data.get('screens', []), ScreenFieldSelection.from_dict)
             )
         except Exception as e:
-            raise RuntimeError(LogMsg.err(e, received=Json.serialize(data))) from e
+            raise RuntimeError(LogMsg.err(
+                e, 
+                f"Failed to construct TransactionOptions",
+                received=Json.serialize(data)
+            )) from e
 
     def with_fields(
         self, 
@@ -116,5 +120,19 @@ class TransactionOptions(Json.Serial[TransactionOptionsDict]):
             )
         
         return self.export.file.path
+
+    def to_dict(self) -> TransactionOptionsDict | dict[str, Any]:
+        return {
+            "code": self.code,
+            "id": self._id,
+            "method": self.method,
+            "layout": None if self.layout is None else self.layout.to_dict(),
+            "variant": None if self.variant is None else self.variant.to_dict(),
+            "export": None if self.export is None else self.export.to_dict(),
+            "screens": Array.map(self.screens, lambda s: s.to_dict())
+        }
+
+    def __str__(self):
+        return Json.to_str(self.to_dict())
 
 __all__ = export(TransactionOptions, TransactionOptionsDict)
