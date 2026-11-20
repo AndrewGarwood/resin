@@ -13,9 +13,9 @@ from datetime import datetime, timedelta
 from pathlib import Path
 from lute import (LogMsg, get_logger, annotate)
 from pyqi import (
-    Json, Array, 
-    fs, guard, dt, export,
-    safe
+    Json,
+    fs, dt, export,
+    safe, guard, require
 )
 from noxl.engines.xlcom.session import ExcelSession
 from noxl.engines.xlcom.workbook import ManagedName
@@ -30,7 +30,12 @@ from resin._workbook import (
 )
 from .warning_watcher import version_warning_watcher
 from .types import (ConnectionMode, WorkbookProperty)
-from .binding import (BindingState, BindingObservation, BindingVerifier, default_connect_result_verifier)
+from .binding import (
+    BindingState, 
+    BindingObservation, 
+    BindingVerifier, 
+    naive_binding_verifier
+)
 from .constants import (VERSION_WARNING_WINDOW_TITLE)
 from .global_configuration import (GlobalConfiguration, GlobalConfigurationDict)
 from .connection_options import (ConnectionOptions, ConnectionIdentity, ConnectionOptionsDict)
@@ -70,17 +75,20 @@ class Controller(BaseController):
     _ibp: win32.CDispatch | None
     _anchor: win32.CDispatch | None
     _anchor_path: Path | None
-    connect_result_verifier: Callable[[Any], bool]
-    """ used when `self._verifier` is `None` """
     _verifier: BindingVerifier | None
     _identity: ConnectionIdentity
+    # _worksheet_connection_cache: dict[str, Any]
+    # """
+    # map `Worksheet.Name` to `self.ibp.GetConnections(Worksheet)`
+    # TODO: maybe should map to 
+    # { connections: self.ibp.GetConnections(ws), active_connection: self.ibp.GetActiveConnection(ws)}
+    # """
     def __init__(
         self,
         options: ControllerOptions | Json.ObjectSource[ControllerOptionsDict],
         connection_options: ConnectionOptions | Json.ObjectSource[ConnectionOptionsDict],
         api_config: GlobalConfiguration | Json.ObjectSource[GlobalConfigurationDict] | None=None,
-        binding_verifier: BindingVerifier | None = None,
-        connect_result_verifier: Callable[[Any], bool] | None = None,
+        binding_verifier: BindingVerifier | None = naive_binding_verifier,
         ui: RefreshUI | None = None,
         backend: winauto.DesktopBackend | None = None,
         warning_options: winauto.WindowOptionsDict | None=None,
@@ -103,14 +111,12 @@ class Controller(BaseController):
             warning_options 
             or winauto.WindowOptionsDict(title=VERSION_WARNING_WINDOW_TITLE)
         )
-        self.connect_result_verifier = (
-            connect_result_verifier or default_connect_result_verifier
-        )
         self._verifier = binding_verifier
         self._ibp = None
         self._anchor = None # anchor wb win32.CDispatch
         self._anchor_path = self.options.anchor_seed
         self._identity = ConnectionIdentity.from_options(self.connection_options)
+        # self._worksheet_connection_cache = dict()
 
         super().__init__(
             options=self.options,
@@ -121,23 +127,25 @@ class Controller(BaseController):
             now=now,
         )
     def __post_init__(self):
+        # ========= verify configuration ======================================
+        _ID_PROPS = [
+            self.connection_options.planning_area,
+            self.connection_options.server_url,
+        ]
         if (self.options.connection_mode == ConnectionMode.ANCHOR 
-            and self._verifier is None 
-            and not self.connection_options.name
+            and (
+                self._verifier is None 
+                or not self.connection_options.name
+            )
         ): 
             raise ConfigurationError(LogMsg(
-                "ConnectionMode.ANCHOR requires ConnectionOptions.name or binding_verifier"
+                "ConnectionMode.ANCHOR requires ConnectionOptions.name and binding_verifier",
+                connection_options=self.connection_options,
+                binding_verifier=self._verifier
             ))
-        
         if (self._verifier is None
             and not self.connection_options.name
-            and Array.some(
-                [
-                    self.connection_options.planning_area,
-                    self.connection_options.server_url,
-                ],
-                lambda x: x is not None
-            )
+            and any(x is None for x in _ID_PROPS)
         ):
             raise ConfigurationError(LogMsg(
                 f"Must provide binding_verifier in constructor when:",
@@ -145,6 +153,14 @@ class Controller(BaseController):
                 "connection_options.planning_area and/or"
                 +" connection_options.server_url is defined"
             ))
+
+        if (self._verifier is not None and all(x is None for x in _ID_PROPS)):
+            raise ConfigurationError(LogMsg(
+                f"Invalid ConnectionOptions for binding verification",
+                f"Must define at least one of planning_area, server_url",
+            ))
+        # ========= set values ================================================
+        
         self.warning_options['process'] = self.session.pid
     
     @property
@@ -208,6 +224,31 @@ class Controller(BaseController):
             self.wait_for_idle(deadline)
             self._ensure_binding(self._anchor, ws, deadline, force_connect=True)
     
+    def _get_active_connection(self, ws: win32.CDispatch, /) -> str | None:
+        val = self.ibp.GetActiveConnection(ws)
+        return (
+            None if val is None 
+            else require.non_empty_string(
+                val,
+                f"""
+                self.ibp.GetActiveConnection(
+                    Workbook.Worksheets({safe.readattr(ws, 'Name')})
+                )
+                """
+            )
+        )
+
+    def _get_worksheet_connections(self, ws: win32.CDispatch, /) -> Any:
+        return self.ibp.GetConnections(ws)
+        # _name: str = require.non_empty_string(ws.Name, "Worksheet.Name")
+        # if (_name in self._worksheet_connection_cache):
+        #     val = self._worksheet_connection_cache[_name]
+        #     if (val is not None): return val
+        # _connections = self.ibp.GetConnections(ws)
+        # if (_connections is not None):
+        #     self._worksheet_connection_cache[_name] = _connections
+        # return _connections
+    
     def _ensure_binding(
         self, 
         wb: win32.CDispatch, 
@@ -224,33 +265,21 @@ class Controller(BaseController):
         deadline.check("connection verification")
         requested = self._requested(wb)
         if self._verifier is not None:
-            observation = self._observe(wb, ws, requested, None)
+            observation = self._observe(wb, ws, requested)
             if observation.state == BindingState.VALID and not force_connect:
                 assert observation.identity is not None
                 self._identity = observation.identity
                 return requested, observation.identity, False
         deadline.check("IBP Connect")
-        # param_str = self.ibp.GetActiveConnection(ws)
-        # mlog.debug(LogMsg(
-        #     f"before self.ibp.Connect(<connection_name>)",
-        #     active_connection=annotate(param_str),
-        # ))
-        # sys.exit(1)
         with version_warning_watcher(self.warning_options):
-            result = self.ibp.Connect(requested.name)
-        # param_str = self.ibp.GetActiveConnection(ws)
-        # mlog.debug(LogMsg(
-        #     f"after self.ibp.Connect(<connection_name>)",
-        #     result=str(result),
-        #     active_connection=annotate(param_str),
-        # ))
-        # could verify binding by checking 
-        # self.connection_options.planning_area in self.ibp.GetActiveConnection(ws)
+            self.ibp.Connect(requested.name)
         deadline.check("IBP Connect completion")
         self.wait_for_idle(deadline)
-        observation = self._observe(wb, ws, requested, result)
+        observation = self._observe(wb, ws, requested)
         deadline.check("post-Connect verification")
-        if observation.state != BindingState.VALID or observation.identity is None:
+        if (observation.state != BindingState.VALID 
+            or observation.identity is None
+        ):
             raise ConnectionBindingError("IBP binding is not usable after one Connect attempt")
         self._identity = observation.identity
         return requested, observation.identity, True
@@ -260,59 +289,58 @@ class Controller(BaseController):
         wb: win32.CDispatch, 
         ws: win32.CDispatch, 
         requested: ConnectionIdentity, 
-        connect_result: Any,
     ) -> BindingObservation:
+        _active_conn = self._get_active_connection(ws)
         if self._verifier is None:
             # Without installed-version proof, never reuse or interpret GetConnections.
-            if (not self.connect_result_verifier(connect_result)):
-                raise ConnectionBindingError(LogMsg(
-                    "Connect did not return a verified success value",
-                    connect_result_verifier=annotate(self.connect_result_verifier),
-                    connect_result=annotate(connect_result)
-                ))
             _observed_name = self.get_connection_name(wb)
-            if (_observed_name is not None and _observed_name != requested.name):
-                raise ConnectionBindingError(LogMsg(
-                    "Connect did not establish the requested workbook connection",
-                    requested_name=annotate(requested.name),
-                    observed_name=annotate(_observed_name)
-                ))
-            return BindingObservation(BindingState.VALID, requested)
+            if (_observed_name is not None):
+                if (not _active_conn):
+                    return BindingObservation(BindingState.EXPIRED, requested)
+                if (_observed_name != requested.name):
+                    raise ConnectionBindingError(LogMsg(
+                        "Connect did not establish the requested workbook connection",
+                        requested_name=annotate(requested.name),
+                        observed_name=annotate(_observed_name),
+                        active_connection=_active_conn
+                    ))
+                return BindingObservation(BindingState.VALID, requested)
+            return BindingObservation(BindingState.MISSING, requested)
         try:
             observation = self._verifier(
+                requested, 
+                _active_conn, 
                 workbook=wb, 
-                worksheet=ws, 
-                requested=requested,
-                connections=self.ibp.GetConnections(ws), 
-                connect_result=connect_result,
+                worksheet=ws
             )
         except Exception as e:
             raise ConnectionBindingError(
-                "installed IBP binding verification failed"
+                "Installed IBP binding verification failed"
             ) from e
         if (not isinstance(observation, BindingObservation) 
             or not isinstance(observation.state, BindingState)
         ):
-            raise ConnectionBindingError("binding verifier returned an invalid observation")
+            raise ConnectionBindingError(
+                "binding verifier returned an invalid observation"
+                )
         identity = observation.identity
         if identity is not None:
             if (not isinstance(identity, ConnectionIdentity) 
                 or not guard.is_non_empty_string(identity.name)
             ):
                 raise ConnectionBindingError("binding verifier returned an invalid identity")
-            for key in ("name", "planning_area", "server_url", "id"):
+            for key in ("name", "planning_area", "server_url"):
                 expected = getattr(requested, key)
-                actual = getattr(identity, key)
-                if (actual is not None 
-                    and (
-                        not isinstance(actual, str) 
-                        or not actual.strip()
+                actual: str | None = getattr(identity, key)
+                if (actual is not None and not guard.is_non_empty_string(actual)):
+                    raise ConnectionBindingError(
+                        f"binding verifier returned an invalid value for identity field '{key}'"
+                    )
+                if (expected is not None and actual != expected):
+                    raise ConnectionBindingError(
+                        "observed binding conflicts with controller identity"
                         )
-                    ):
-                    raise ConnectionBindingError("binding verifier returned an invalid identity field")
-                if expected is not None and actual != expected:
-                    raise ConnectionBindingError("observed binding conflicts with controller identity")
-        if observation.state == BindingState.VALID and identity is None:
+        if (observation.state == BindingState.VALID and identity is None):
             raise ConnectionBindingError("valid binding observation requires a verified identity")
         return observation
 

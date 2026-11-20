@@ -65,7 +65,10 @@ class ConnectionIdentity:
     name: str
     planning_area: str | None = None
     server_url: str | None = None
-    # param_str: str | None = None
+    param_str: str | None = None
+    """ 
+    return value of `self.ibp.GetActiveConnection(<Worksheet>)`
+    """
 
     @classmethod
     def from_options(cls, options: ConnectionOptions, /):
