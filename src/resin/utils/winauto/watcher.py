@@ -12,10 +12,11 @@ from pyqi import export
 from lute import get_logger
 mlog = get_logger(__file__, name_depth=1)
 
-T = TypeVar("T")
+DialogOptionsT = TypeVar("DialogOptionsT")
+WrapperT = TypeVar('WrapperT', bound=BaseWrapper) 
 
 @dataclass
-class NativeDialogWatcher(ABC, Generic[T]):
+class NativeDialogWatcher(ABC, Generic[DialogOptionsT, WrapperT]):
     cancel: Event
     done: Event
     handled_event: Event
@@ -76,7 +77,7 @@ class NativeDialogWatcher(ABC, Generic[T]):
         self.cancel.set()
 
     @abstractmethod
-    def handle_dialog(self, dlg: BaseWrapper | Any, options: T, *args, **kwargs): ... # , class_name: FlexStr[WindowClass] = "Edit"
+    def handle_dialog(self, dlg: WrapperT | Any, options: DialogOptionsT, *args, **kwargs): ... # , class_name: FlexStr[WindowClass] = "Edit"
 
 
 __all__ = export(NativeDialogWatcher)

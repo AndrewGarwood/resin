@@ -7,7 +7,7 @@ from typing import (TypedDict, Any, Self, Required)
 from pyqi import (Json, require, export, fs)
 from lute import LogMsg
 from noxl import (CellAddress, CellAddressLike)
-from .constants import DEFAULT_SHEETNAME
+from .constants import (DEFAULT_SHEETNAME, DEFAULT_DATA_ORIGIN)
 
 
 class WorkbookOptionsDict(TypedDict, total=False):
@@ -37,7 +37,7 @@ class WorkbookOptions(Json.Serial[WorkbookOptionsDict]):
     ):
         self.path = fs.to_path(path)
         self.sheetname = sheetname or DEFAULT_SHEETNAME
-        self._data_origin = data_origin
+        self._data_origin = data_origin or DEFAULT_DATA_ORIGIN
         self.required_headers = required_headers or []
         self.description = description
 

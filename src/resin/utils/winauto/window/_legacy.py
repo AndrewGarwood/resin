@@ -1,6 +1,8 @@
 """
 *`@file`* `utils/winauto/window/_legacy`
 """
+from typing import Any
+
 from resin.utils.winauto import control
 from resin.utils.winauto.exceptions import (AutomationError)
 from pywinauto import Application
@@ -50,7 +52,10 @@ def find_available_control(
             e,
             title=title,
             ctrl_types=ctrl_types,
-            require_unique=require_unique
+            require_unique=require_unique,
+            available_descendants=("[\n" 
+                + "\n".join(Array.map(matches, str)))
+                + "\n]"
         )) from e
 
 
@@ -91,7 +96,8 @@ def find_window_by_title(
             e,
             title=title,
             require_unique=require_unique,
-            ignore_case=ignore_case
+            ignore_case=ignore_case,
+            backend=str(app.backend)
         )) from e
 
 __all__ = export(

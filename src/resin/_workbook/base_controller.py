@@ -4,12 +4,12 @@
 from __future__ import annotations
 import tempfile, sys
 from datetime import datetime
-from typing import (Any, Callable, Generator, TYPE_CHECKING)
+from typing import (Any, Callable, Generator, TYPE_CHECKING, Protocol)
 import time, threading
 from pywintypes import com_error
 from contextlib import (contextmanager, ExitStack)
 from pathlib import Path
-from pyqi import (require, Json)
+from pyqi import (require, Json, String)
 from lute import LogMsg, get_logger
 from noxl.engines.xlcom.session import (ExcelSession)
 from .types import (StagingPolicy, ControllerState)
@@ -40,6 +40,9 @@ _FATAL_HRESULTS = frozenset([
     -2147023170
 ])
 
+class _HasPathProperty(Protocol):
+    path: Path
+
 class BaseController():
     _session: ExcelSession | None
     def __init__(
@@ -53,7 +56,6 @@ class BaseController():
     ):
         """
         - *`@param`* `session_factory` `() -> Session | None`
-            - will default to `(function) default_session_factory() -> noxl.ExcelSession`
             - used as `context manager` arg in `stack.enter_context`
         """
         self.options = BaseControllerOptions.from_any(options)
@@ -92,8 +94,12 @@ class BaseController():
             raise DeadSessionError("Controller has no usable Excel session")
         return self._session
 
-
-    def deadline(self, timeout_seconds: float, /, poll_seconds: float | None=None):
+    def deadline(
+        self, 
+        timeout_seconds: float, 
+        /, 
+        poll_seconds: float | None=None
+    ) -> Deadline:
         return Deadline(
             seconds=timeout_seconds, 
             clock=self._clock, 
@@ -102,7 +108,7 @@ class BaseController():
             poll_seconds=require.positive_number(
                 poll_seconds or self.options.poll_seconds, 
                 f"{self.__class__.__name__}.deadline(..., <poll_seconds>)"
-                )
+            )
         )
 
     def __enter__(self):
@@ -143,7 +149,39 @@ class BaseController():
                 self._state = ControllerState.FAILED
             raise
         return self
-    
+
+    def __exit__(self, exc_type: Any, exc: Any, tb: Any) -> bool:
+        self._check_thread()
+        if self._busy:
+            raise WorkbookControllerError("Cannot exit during an active workbook operation")
+        stack = self._stack
+        if stack is None:
+            return False
+        failed = self._state == ControllerState.FAILED or exc is not None
+        self._state = ControllerState.CLOSING
+        try:
+            try:
+                self._close_targets()
+            except Exception:
+                if exc is None:
+                    raise
+                mlog.exception("Secondary failure closing target workbooks")
+            finally:
+                try:
+                    stack.__exit__(exc_type, exc, tb)
+                except Exception:
+                    if exc is None:
+                        raise
+                    mlog.exception("Secondary failure closing Excel controller")
+        except BaseException:
+            failed = True
+            raise
+        finally:
+            self._session = None
+            self._stack = None
+            self._state = ControllerState.FAILED if failed else ControllerState.CLOSED
+        return False
+
     def _on_enter(self, deadline: Deadline) -> None: # implement in child class
         pass
 
@@ -182,7 +220,7 @@ class BaseController():
         mlog.error("Excel session invalidated (%s)", type(error).__name__)
     
     @staticmethod
-    def is_fatal(error: BaseException) -> bool:
+    def is_fatal(error: BaseException, /) -> bool:
         from noxl.types import ExcelSaveTimeoutError
         seen: set[int] = set()
         current: BaseException | None = error
@@ -195,7 +233,7 @@ class BaseController():
             current = current.__cause__
         return False
     
-    def wait_for_idle(self, deadline: Deadline) -> None:
+    def wait_for_idle(self, deadline: Deadline, /) -> None:
         while True:
             deadline.check("Excel readiness")
             deadline.pump()
@@ -211,19 +249,32 @@ class BaseController():
                     raise
             deadline.pause()
 
-    def should_stage(self, path: Path) -> bool:
+    def should_stage(self, path: Path, /) -> bool:
         if self.options.staging_policy == StagingPolicy.ALWAYS:
             return True
         if self.options.staging_policy == StagingPolicy.NEVER:
             return False
+        pathstr = str(path)
         return (
-            str(path).startswith("\\\\") 
+            String.startswith(pathstr, ["\\\\", "https"])
             or any(
                 path.is_relative_to(root) 
                 for root in self.options.stage_roots
             )
+            or "\\https" in pathstr
         )
 
+    def add_stage_roots(self, *items: Path | _HasPathProperty) -> None:
+        _paths = [
+            (x if isinstance(x, Path) else x.path) 
+            for x in items
+        ]
+        existing = set(self.options.stage_roots)
+        for p in (_paths):
+            if not p in existing:
+                self.options.stage_roots.append(p)
+        return None
+    
     @contextmanager
     def operation(
         self, 
@@ -270,4 +321,6 @@ class BaseController():
 
 
 
-__all__ = ["BaseController"]
+__all__ = [
+    "BaseController"
+    ]

@@ -13,8 +13,7 @@ class ConnectionOptionsDict(TypedDict, total=False):
     planning_area: str
     server_url: str
     is_default: bool
-    connstr: str # TODO: rename this to infostr or connstr or something b/c value read may not actually be the id
-
+    # param_str: str
 
 class ConnectionOptions(Json.Serial[ConnectionOptionsDict]):
     """
@@ -24,7 +23,11 @@ class ConnectionOptions(Json.Serial[ConnectionOptionsDict]):
     planning_area: str | None = None
     server_url: str | None = None
     is_default: bool = True
-    _connstr: str | None = None
+    # param_str: str | None = None
+    # """
+    # - can obtained after `Controller.ibp.Connect(<ConnectionOptions.name>)`
+    # - = `'{<str>}_[<server_url>]_[<str>]_[<planning_area>]_[]_[]_[<bool>]_[<bool>]'` 
+    # """
 
     def __init__(
         self, 
@@ -32,22 +35,13 @@ class ConnectionOptions(Json.Serial[ConnectionOptionsDict]):
         planning_area: str | None = None,
         server_url: str | None = None,
         is_default: bool = True,
-        connstr: str | None = None
+        # param_str: str | None = None
     ) -> None:
         self.name = name
         self.planning_area = planning_area
         self.server_url = server_url
         self.is_default = is_default
-        self._connstr = connstr
-
-    @property
-    def connstr(self) -> str:
-        if (not self._connstr):
-            raise RuntimeError(f"self._connstr is undefined")
-        return self.connstr
-    @connstr.setter
-    def connstr(self, value: str, /):
-        self._connstr = require.non_empty_string(value, 'connstr')
+        # self.param_str = param_str
 
     @classmethod
     def from_dict(cls, data: ConnectionOptionsDict | dict[str, Any], /) -> Self:
@@ -57,10 +51,9 @@ class ConnectionOptions(Json.Serial[ConnectionOptionsDict]):
                 planning_area=data.get("planning_area", None),
                 server_url=data.get("server_url", None),
                 is_default=data.get("is_default", True),
-                connstr=data.get('connstr', data.get('id', None)),
+                # param_str=data.get('param_str', None),
             )
-        except (ValueError, KeyError): 
-            raise
+        except (ValueError, KeyError): raise
         except Exception as e:
             raise RuntimeError(LogMsg.err(e,
                 f"Failed to construct ibp.ConnectionOptions from dict",
@@ -72,7 +65,7 @@ class ConnectionIdentity:
     name: str
     planning_area: str | None = None
     server_url: str | None = None
-    connstr: str | None = None
+    # param_str: str | None = None
 
     @classmethod
     def from_options(cls, options: ConnectionOptions, /):
@@ -80,7 +73,7 @@ class ConnectionIdentity:
             name=options.name,
             planning_area=options.planning_area,
             server_url=options.server_url,
-            connstr=options.connstr
+            # param_str=options.param_str
         )
 
 __all__ = export(ConnectionOptions, ConnectionOptionsDict)

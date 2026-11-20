@@ -7,7 +7,6 @@ from pywinauto import Application
 from pywinauto.backend import name as get_backend_name
 from pywinauto.base_wrapper import BaseWrapper
 
-
 def attach_process(
     pid: int, 
     title: str, 
@@ -18,7 +17,8 @@ def attach_process(
     timeout_seconds: float=30.0,
 ) -> tuple[Application, BaseWrapper]:
     if (not backend):
-        backend = str(get_backend_name)
+        backend = str(get_backend_name())
+    print(f"{str(backend)=}")
     app = (
         Application(backend=backend)
         .connect(
@@ -26,6 +26,7 @@ def attach_process(
             timeout=timeout_seconds
         )
     )
+    print(f"{str(app.windows())=}")
     window = find_window_by_title(
         app, 
         title, 

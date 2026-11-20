@@ -80,3 +80,6 @@ class ControllerOptions(BaseControllerOptions):
             "anchor_sheetname": self.anchor_sheetname,
             "stable_seconds": self.stable_seconds
         }
+
+    # def __str__(self) -> str:
+    #     return f"<{self.__cls_name__}>" + Json.stringify(self.to_dict())

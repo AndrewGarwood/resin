@@ -32,7 +32,7 @@ mlog = get_logger(__file__, name_depth=1)
 
 
 @dataclass
-class NativeSaveDialogWatcher(NativeDialogWatcher[NativeSaveDialogOptions]):
+class NativeSaveDialogWatcher(NativeDialogWatcher[NativeSaveDialogOptions, BaseWrapper]):
     def handle_dialog(
         self, 
         dlg: BaseWrapper | Any, 
@@ -252,91 +252,6 @@ def _save_worker(
             )
 
         done.set()
-# def _save_worker(
-#     watcher: NativeSaveDialogWatcher,
-#     options: NativeSaveDialogOptions, 
-#     outpath: Path, 
-#     cancel: Event,
-#     done: Event,
-#     *, 
-#     owner_hwnd: int | None=None,
-#     timeout: float=30.0, 
-#     poll: float=0.15
-# ):
-#     with com_apartment():
-#         claimed_handle: int | None = None
-#         if (owner_hwnd is not None):
-#             mlog.debug(LogMsg(
-#                 "_save_worker describing owner hwnd:", 
-#                 winauto.describe_window(owner_hwnd)
-#             ))
-            
-#         try:
-#             deadline = time.monotonic() + timeout
-#             desktop = Desktop(backend=str(options.backend))
-#             while (
-#                 not cancel.is_set() 
-#                 and time.monotonic() < deadline
-#             ):
-#                 # wrapper = _find_save_dialog(desktop, options, owner_hwnd=owner_hwnd)
-#                 candidate = desktop.window(
-#                     class_name=options.save_dialog.class_name, 
-#                     title_re=options.save_dialog.title_re
-#                 )
-#                 if candidate is None or not candidate.exists(timeout=2.0):
-#                     cancel.wait(poll)
-#                     continue
-#                 wrapper = candidate.wrapper_object()
-#                 handle = int(wrapper.handle)
-#                 mlog.debug(LogMsg(
-#                     "Native save dialog candidate detected",
-#                     dialog=winauto.describe_window(handle),
-#                     expected_owner_hwnd=owner_hwnd,
-#                 ))
-#                 if (not NATIVE_DIALOG_HANDLE_LM.claim_handle(handle)):
-#                     cancel.wait(poll)
-#                     continue
-#                 claimed_handle = handle
-#                 try:
-#                     if (not win32gui.IsWindow(handle)): continue
-#                     if (not control_is_available(wrapper)): continue
-#                     if (owner_hwnd is not None and not is_owned_by(handle, owner_hwnd)):
-#                         continue
-#                     watcher.handle_dialog(wrapper, options, outpath)
-#                 finally:
-#                     NATIVE_DIALOG_HANDLE_LM.release_handle(handle)
-#                     claimed_handle = None
-#             if cancel.is_set():
-#                 mlog.debug(LogMsg("Native save dialog watcher was cancelled"))
-#                 return
-#             watcher.timed_out = True
-#             watcher.error = TimeoutError(
-#                 f"No eligible native save dialog was detected "
-#                 f"within {timeout:.1f} seconds"
-#             )
-
-#         except BaseException as e:
-#             watcher.error = e
-#             mlog.exception(LogMsg.err(
-#                 e,
-#                 "Native save dialog watcher failed",
-#                 owner_hwnd=owner_hwnd,
-#                 outpath=str(outpath),
-#             ))
-#         finally:
-#             if claimed_handle is not None:
-#                 try:
-#                     NATIVE_DIALOG_HANDLE_LM.release_handle(
-#                         claimed_handle
-#                     )
-#                 except Exception:
-#                     mlog.exception(
-#                         "Failed to release native dialog handle"
-#                     )
-
-#             # Wake every waiter, regardless of success, failure, or timeout.
-#             watcher.handled_event.set()
-#             done.set()
 
 @contextmanager
 def native_save_dialog_watcher(
@@ -451,31 +366,3 @@ def _find_save_dialog(
     )
 
     return candidates[0]
-
-# def _find_save_dialog(
-#     desktop: Desktop,
-#     options: NativeSaveDialogOptions,
-#     *,
-#     owner_hwnd: int | None,
-# ) -> BaseWrapper | None:
-#     class_name = str(options.save_dialog.class_name)
-#     title_pattern = re.compile(options.save_dialog.title_re)
-#     for i, window in enumerate(desktop.windows(
-#         class_name=class_name,
-#         visible_only=True,
-#     )):
-#         mlog.debug(LogMsg(f"_find_save_dialog @ window {i=}"))
-#         winauto.describe_window(window)
-
-#         if (not control_is_available(window)):
-#             continue
-
-#         if not title_pattern.match(window.window_text()):
-#             continue
-#         handle = int(window.handle)
-#         if (owner_hwnd is not None
-#             and not is_owned_by(handle, owner_hwnd)
-#         ):
-#             continue
-#         return window
-#     return None

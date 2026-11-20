@@ -33,7 +33,7 @@ from .utils import (
     is_busy as ao_is_busy, to_error_tuple, require_ao_bool, _probe_macro_readiness,
     error_is_clear
 )
-from pyqi import (Array, fs, require, safe, guard, Function, Json)
+from pyqi import (Array, require, safe, guard, Function, Json)
 from lute import LogMsg, get_logger
 
 mlog = get_logger(__file__, name_depth=1)
@@ -48,7 +48,6 @@ _UNRESOLVED = {
 class Controller(BaseController):
     def __init__(self,
         options: ControllerOptions | Json.ObjectSource[ControllerOptionsDict],
-        /,
         *,
         session_factory: SessionFactory | None = None,
         clock: Callable[[], float] = time.monotonic,
@@ -486,7 +485,12 @@ class Controller(BaseController):
             self._wait_datasource(wbo.ds_alias, txn.deadline)
             previous = self._timestamp(txn.wb, txn.deadline)
             txn.last_timestamp = previous
-            remaining = cooldown_remaining(previous, self._now(), self.options.cooldown_seconds, force=force)
+            remaining = cooldown_remaining(
+                previous, 
+                self._now(), 
+                self.options.cooldown_seconds, 
+                force=force
+            )
             if remaining > 0:
                 return txn.outcome(
                     RefreshStatus.SKIPPED_COOLDOWN, 
@@ -500,7 +504,12 @@ class Controller(BaseController):
             resolved: dict[str, Any] = dict()
             responses: list[tuple[str, int]] = []
             txn.phase = "AO initial refresh"
-            self._checked(AoMacro.EXEC_CMD, str(AoCmd.REFRESH_DATA), deadline=txn.deadline, responses=responses)
+            self._checked(
+                AoMacro.EXEC_CMD, 
+                str(AoCmd.REFRESH_DATA), 
+                deadline=txn.deadline, 
+                responses=responses
+            )
             initial = self._wait_completion(txn.wb, wbo.ds_alias, previous, txn.deadline)
             txn.last_timestamp = initial
             restoration_needed = True
@@ -533,7 +542,12 @@ class Controller(BaseController):
                 if baseline is None or baseline < initial:
                     raise AoCommandError("AO refresh timestamp regressed before final refresh")
                 txn.phase = "AO final refresh"
-                self._checked(AoMacro.EXEC_CMD, str(AoCmd.REFRESH_DATA), deadline=txn.deadline, responses=responses)
+                self._checked(
+                    AoMacro.EXEC_CMD, 
+                    str(AoCmd.REFRESH_DATA), 
+                    deadline=txn.deadline, 
+                    responses=responses
+                )
                 refreshed = self._wait_completion(txn.wb, wbo.ds_alias, baseline, txn.deadline)
                 txn.last_timestamp = refreshed
             except BaseException as e:

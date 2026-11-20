@@ -12,3 +12,7 @@ logs/
 
 # Virtual environments
 .venv
+
+
+
+tests.config.json

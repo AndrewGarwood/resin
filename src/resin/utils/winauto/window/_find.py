@@ -3,6 +3,7 @@
 """
 from typing import Any, overload, Literal, TypeVar, TypeGuard
 import re
+import sys
 from resin.utils.winauto.types import (DesktopBackend, ElementSelector)
 from resin.utils.runtime import validate_polling
 from resin.utils.winauto.exceptions import (AutomationError)
@@ -20,6 +21,17 @@ WrapperT = TypeVar("WrapperT", bound=BaseWrapper)
 
 mlog = get_logger(__file__, name_depth=1)
 
+@overload
+def find(
+    criteria: int | str | re.Pattern[str] | WindowOptionsDict,
+    /,
+    *,
+    backend: DesktopBackend | str | None = None,
+    require_unique: bool = True,
+    strict: Literal[True]=True,
+    selector: ElementSelector | None = None,
+    expected_wrapper: None = None
+) -> BaseWrapper | Any: ...
 
 @overload
 def find(
@@ -42,6 +54,18 @@ def find(
     require_unique: bool = True,
     strict: Literal[False],
     selector: ElementSelector | None = None,
+    expected_wrapper: None = None
+) -> BaseWrapper | Any | None: ...
+
+@overload
+def find(
+    criteria: int | str | re.Pattern[str] | WindowOptionsDict,
+    /,
+    *,
+    backend: DesktopBackend | str | None = None,
+    require_unique: bool = True,
+    strict: Literal[False],
+    selector: ElementSelector | None = None,
     expected_wrapper: type[WrapperT] = BaseWrapper
 ) -> WrapperT | None: ...
 
@@ -53,7 +77,7 @@ def find(
     require_unique: bool = True,
     strict: bool = True,
     selector: ElementSelector | None = None,
-    expected_wrapper: type[WrapperT] = BaseWrapper
+    expected_wrapper: type[WrapperT] | None = None
 ):
     """
     calls `Desktop(backend=backend).windows(**kwargs) -> list[Unknown]`
@@ -69,7 +93,9 @@ def find(
     candidates: list[BaseWrapper] | None = None
     options = resolve_window_options_dict(criteria)
     try:
+        # mlog.debug(LogMsg(f"WindowOptions: {options}"))
         candidates = Desktop(backend=backend).windows(**options)
+        # mlog.debug(LogMsg(f"Found {len(candidates)} candidate(s)"))
         result = _select_element(
             candidates, 
             strict=strict, 

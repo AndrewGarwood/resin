@@ -1,39 +1,44 @@
 """
 *`@file`* `ibp/controller`
 """
-from __future__ import annotations
+from __future__ import annotations as _annotations
 from dataclasses import dataclass
 from typing import Any, Callable, Generator, Self, TypeVar
 from uuid import uuid4
 import shutil, threading, time
+import sys
 from contextlib import contextmanager
 import win32com.client as win32
 from datetime import datetime, timedelta
 from pathlib import Path
-from lute import LogMsg
-from pyqi import (Json, Array, fs, guard, dt, export)
+from lute import (LogMsg, get_logger, annotate)
+from pyqi import (
+    Json, Array, 
+    fs, guard, dt, export,
+    safe
+)
 from noxl.engines.xlcom.session import ExcelSession
 from noxl.engines.xlcom.workbook import ManagedName
 
 from resin._workbook.transaction import WorkbookTransaction
 from resin._workbook.types import PublicationDisposition
-from .constants import (
-    VERSION_WARNING_WINDOW_TITLE
-)
-from .types import (ConnectionMode, WorkbookProperty)
-from .binding import (BindingState, BindingObservation, BindingVerifier)
 from resin.utils import winauto, runtime
-from pywinauto.controls.hwndwrapper import (DialogWrapper)
 from resin._workbook import (
     ConnectionBindingError, ConfigurationError, BaseController, Deadline,
     RefreshOutcome, RefreshStatus, SessionFactory,
     cooldown_remaining, parse_refresh_timestamp
 )
+from .warning_watcher import version_warning_watcher
+from .types import (ConnectionMode, WorkbookProperty)
+from .binding import (BindingState, BindingObservation, BindingVerifier, default_connect_result_verifier)
+from .constants import (VERSION_WARNING_WINDOW_TITLE)
 from .global_configuration import (GlobalConfiguration, GlobalConfigurationDict)
 from .connection_options import (ConnectionOptions, ConnectionIdentity, ConnectionOptionsDict)
 from .workbook_options import (WorkbookOptions)
 from .refresh_ui import (RefreshUI, RibbonRefreshUI)
 from ._options import (ControllerOptions, ControllerOptionsDict)
+
+mlog = get_logger(__file__, name_depth=1)
 
 EXCEL_UI_LOCK = threading.RLock()
 T = TypeVar("T")
@@ -56,30 +61,34 @@ class Controller(BaseController):
     connection_options: ConnectionOptions
     api_config: GlobalConfiguration
     ui: RefreshUI
+    warning_options: winauto.WindowOptionsDict
     backend: winauto.DesktopBackend | None
+    """ not used currently """
     session_factory: SessionFactory | None
     # _ui: RefreshUI | None
     _session: ExcelSession | None
     _ibp: win32.CDispatch | None
     _anchor: win32.CDispatch | None
     _anchor_path: Path | None
+    connect_result_verifier: Callable[[Any], bool]
+    """ used when `self._verifier` is `None` """
     _verifier: BindingVerifier | None
     _identity: ConnectionIdentity
     def __init__(
         self,
         options: ControllerOptions | Json.ObjectSource[ControllerOptionsDict],
-        /,
         connection_options: ConnectionOptions | Json.ObjectSource[ConnectionOptionsDict],
-        api_config: GlobalConfiguration | Json.ObjectSource[GlobalConfigurationDict],
+        api_config: GlobalConfiguration | Json.ObjectSource[GlobalConfigurationDict] | None=None,
         binding_verifier: BindingVerifier | None = None,
+        connect_result_verifier: Callable[[Any], bool] | None = None,
         ui: RefreshUI | None = None,
         backend: winauto.DesktopBackend | None = None,
+        warning_options: winauto.WindowOptionsDict | None=None,
         session_factory: SessionFactory | None = None,
         clock: Callable[[], float] = time.monotonic,
         sleep: Callable[[float], None] = time.sleep,
         pump: Callable[[], None] = runtime.pump_waiting_messages,
         now: Callable[[], datetime] = datetime.now,
-
     ):
         self.options = ControllerOptions.from_any(options)
         self.connection_options = ConnectionOptions.from_any(connection_options)
@@ -90,10 +99,17 @@ class Controller(BaseController):
         )
         self.ui = ui or RibbonRefreshUI()
         self.backend = backend
+        self.warning_options = (
+            warning_options 
+            or winauto.WindowOptionsDict(title=VERSION_WARNING_WINDOW_TITLE)
+        )
+        self.connect_result_verifier = (
+            connect_result_verifier or default_connect_result_verifier
+        )
         self._verifier = binding_verifier
         self._ibp = None
         self._anchor = None # anchor wb win32.CDispatch
-        self._anchor_path = None
+        self._anchor_path = self.options.anchor_seed
         self._identity = ConnectionIdentity.from_options(self.connection_options)
 
         super().__init__(
@@ -106,13 +122,11 @@ class Controller(BaseController):
         )
     def __post_init__(self):
         if (self.options.connection_mode == ConnectionMode.ANCHOR 
-            and (
-                self._verifier is None 
-                or not self.connection_options.name
-            )
+            and self._verifier is None 
+            and not self.connection_options.name
         ): 
             raise ConfigurationError(LogMsg(
-                "ConnectionMode.ANCHOR requires ConnectionOptions.name and binding_verifier"
+                "ConnectionMode.ANCHOR requires ConnectionOptions.name or binding_verifier"
             ))
         
         if (self._verifier is None
@@ -121,15 +135,18 @@ class Controller(BaseController):
                 [
                     self.connection_options.planning_area,
                     self.connection_options.server_url,
-                    self.connection_options.connstr
                 ],
                 lambda x: x is not None
             )
         ):
             raise ConfigurationError(LogMsg(
-                f"Must provide binding_verifier in construction if ConnectionOptions.name is undefined"
+                f"Must provide binding_verifier in constructor when:",
+                "connection_options.name is undefined",
+                "connection_options.planning_area and/or"
+                +" connection_options.server_url is defined"
             ))
-
+        self.warning_options['process'] = self.session.pid
+    
     @property
     def ibp(self) -> Any:
         self.session  # Check lifecycle before exposing a COM proxy.
@@ -137,11 +154,6 @@ class Controller(BaseController):
             raise ConnectionBindingError("IBP add-in is unavailable")
         return self._ibp
 
-    # @property
-    # def ui(self) -> RefreshUI:
-    #     if (self._ui is None):
-    #         raise RuntimeError(LogMsg(f"self._ui is undefined"))
-    #     return self._ui
     
     def __enter__(self) -> Self:
         super().__enter__()
@@ -218,9 +230,23 @@ class Controller(BaseController):
                 self._identity = observation.identity
                 return requested, observation.identity, False
         deadline.check("IBP Connect")
-        result = self.ibp.Connect(requested.name)
-        deadline.check("Closing warning window if exists")
-        self._handle_version_warning()
+        # param_str = self.ibp.GetActiveConnection(ws)
+        # mlog.debug(LogMsg(
+        #     f"before self.ibp.Connect(<connection_name>)",
+        #     active_connection=annotate(param_str),
+        # ))
+        # sys.exit(1)
+        with version_warning_watcher(self.warning_options):
+            result = self.ibp.Connect(requested.name)
+        # param_str = self.ibp.GetActiveConnection(ws)
+        # mlog.debug(LogMsg(
+        #     f"after self.ibp.Connect(<connection_name>)",
+        #     result=str(result),
+        #     active_connection=annotate(param_str),
+        # ))
+        # could verify binding by checking 
+        # self.connection_options.planning_area in self.ibp.GetActiveConnection(ws)
+        deadline.check("IBP Connect completion")
         self.wait_for_idle(deadline)
         observation = self._observe(wb, ws, requested, result)
         deadline.check("post-Connect verification")
@@ -229,21 +255,6 @@ class Controller(BaseController):
         self._identity = observation.identity
         return requested, observation.identity, True
 
-    def _handle_version_warning(
-        self, 
-        title: str=VERSION_WARNING_WINDOW_TITLE, 
-        /,
-    ):
-        warning_dlg = winauto.window.find(
-            title, 
-            strict=False, 
-            expected_wrapper=DialogWrapper
-        )
-        if (not warning_dlg): 
-            return False
-        warning_dlg.close()
-        return True
-    
     def _observe(
         self, 
         wb: win32.CDispatch, 
@@ -253,10 +264,19 @@ class Controller(BaseController):
     ) -> BindingObservation:
         if self._verifier is None:
             # Without installed-version proof, never reuse or interpret GetConnections.
-            if type(connect_result) not in (bool, int) or connect_result != 1:
-                raise ConnectionBindingError("Connect did not return a verified success value")
-            if self.get_connection_name(wb) != requested.name:
-                raise ConnectionBindingError("Connect did not establish the requested workbook connection")
+            if (not self.connect_result_verifier(connect_result)):
+                raise ConnectionBindingError(LogMsg(
+                    "Connect did not return a verified success value",
+                    connect_result_verifier=annotate(self.connect_result_verifier),
+                    connect_result=annotate(connect_result)
+                ))
+            _observed_name = self.get_connection_name(wb)
+            if (_observed_name is not None and _observed_name != requested.name):
+                raise ConnectionBindingError(LogMsg(
+                    "Connect did not establish the requested workbook connection",
+                    requested_name=annotate(requested.name),
+                    observed_name=annotate(_observed_name)
+                ))
             return BindingObservation(BindingState.VALID, requested)
         try:
             observation = self._verifier(
@@ -456,6 +476,7 @@ class Controller(BaseController):
                     (value for value in (previous, baseline) if value is not None),
                     default=None,
                 )
+                
                 txn.phase = "IBP refresh dispatch"
                 txn.deadline.check(txn.phase)
                 refreshed_at: datetime
@@ -468,7 +489,6 @@ class Controller(BaseController):
                             worksheet=ws, 
                             pid=self.session.pid,
                             path=txn.staged_path,
-                            backend=self.backend,
                             deadline=txn.deadline
                         )
                     txn.phase = "IBP refresh completion"

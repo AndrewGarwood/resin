@@ -2,7 +2,7 @@
 *`@file`* `ibp/binding`
 """
 from dataclasses import dataclass
-from typing import (Any, TypeVar, TypedDict, Protocol)
+from typing import (Any, Protocol)
 from pyqi import (BaseStrEnum, export)
 from .connection_options import ConnectionIdentity
 
@@ -25,7 +25,6 @@ class BindingObservation:
     identity: ConnectionIdentity | None = None
 
 
-
 class BindingVerifier(Protocol):
     def __call__(
         self, 
@@ -40,4 +39,17 @@ class BindingVerifier(Protocol):
         ...
 
 
-__all__ = export(BindingVerifier, BindingObservation, BindingState)
+def default_connect_result_verifier(value: Any, /) -> bool:
+    return (
+        value == None 
+        or
+        (isinstance(value, (bool, int)) and value == 1) 
+    )
+
+
+__all__ = export(
+    BindingVerifier, 
+    BindingObservation, 
+    BindingState, 
+    default_connect_result_verifier
+)

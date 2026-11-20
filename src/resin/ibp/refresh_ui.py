@@ -7,6 +7,8 @@ from resin.utils import (winauto)
 from resin._workbook import (Deadline)
 from .constants import IBP_RIBBON_TITLE
 from pyqi import export
+from lute import get_logger, LogMsg
+mlog = get_logger(__file__)
 
 
 class RefreshUI(Protocol):
@@ -16,7 +18,6 @@ class RefreshUI(Protocol):
         worksheet: Any,
         pid: int,
         path: Path,
-        backend: winauto.DesktopBackend | None,
         deadline: Deadline
     ) -> None: ...
 
@@ -36,34 +37,49 @@ class RibbonRefreshUI(RefreshUI):
         worksheet: Any, 
         pid: int, 
         path: Path, 
-        backend: winauto.DesktopBackend | None, 
-        deadline: Deadline
+        deadline: Deadline,
+        hwnd: int | None = None
     ) -> None:
         deadline.check("IBP Refresh UI activation")
         workbook.Activate()
-        worksheet.Activate()
-        _, window = winauto.window.attach_process(
-            pid, 
-            path.name, 
-            backend=backend, 
-            require_unique=True, 
-            ignore_case=True, 
-            timeout_seconds=deadline.remaining()
-        )
+        # worksheet.Activate()
+        _dict = winauto.WindowOptionsDict(process=pid, title_re=rf"^{path.name}.*")
+        if (hwnd is not None):
+            _dict['handle'] = hwnd
+        window = winauto.find_window(_dict)
+        # _, window = winauto.attach_process_to_window(pid, path.name)
+        raise NotImplementedError("oi I can't find da tab item")
         deadline.check("Select IBP Ribbon Tab")
         window.wait_for_idle()
-        try: window.restore() # type: ignore
-        except Exception: pass
+        # try: window.restore() # type: ignore
+        # except Exception: pass
         window.set_focus()
-        tab = winauto.window.find_available_control(
-            window,
-            title=self.ribbon_tab_title,
-            ctrl_types=(
-                winauto.UiaControl.TAB_ITEM, 
-                winauto.CommonControl.BUTTON, 
-                winauto.UiaControl.TEXT
+        # _ctrl_types = (
+        #         winauto.UiaControl.TAB_ITEM, 
+        #         winauto.CommonControl.BUTTON, 
+        #         winauto.UiaControl.TEXT,
+        #     )
+        tab = winauto.find_window(
+            winauto.WindowOptionsDict(
+                process=pid,
+                title_re=self.ribbon_tab_title,
+                top_level_only=False
             )
         )
+        # for c in _ctrl_types:
+        #     mlog.debug(LogMsg(
+        #         f"@ ctrl_type {c}",
+        #         f"{winauto.window.get_class(class_name=winauto.Win32Window.DIALOG, visible_only=True)=}"
+        #     ))
+        # tab = winauto.window.find_available_control(
+        #     window,
+        #     title=self.ribbon_tab_title,
+        #     ctrl_types=(
+        #         winauto.UiaControl.TAB_ITEM, 
+        #         winauto.CommonControl.BUTTON, 
+        #         winauto.UiaControl.TEXT,
+        #     )
+        # )
         tab.wait_for_idle()
         tab.click_input()
         deadline.check("Find refresh button")

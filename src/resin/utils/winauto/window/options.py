@@ -20,7 +20,11 @@ class WindowOptionsDict(TypedDict, total=False):
     handle: int
     parent: int | ElementInfo
     """
-    `handle (integer)` or `pywinauto.element_info.ElementInfo`
+    parent's `handle (integer)` or `pywinauto.element_info.ElementInfo`
+    """
+    process: int
+    """
+    the target `process_id`
     """
 
 __all__ = [

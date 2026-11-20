@@ -14,7 +14,14 @@ from .control.types import *
 from .control.options import *
 from .types import *
 from .watcher import *
-from . import (window, control)
+from . import (
+    window, 
+    control,
+    )
+from .window import (
+    WindowOptionsDict, 
+    WindowState,
+    )
 from .window._find import (
     find as find_window,
     by_spec as find_window_by_spec

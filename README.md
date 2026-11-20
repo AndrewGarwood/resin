@@ -96,6 +96,14 @@ deployment-verified binding adapter if your add-in differs. Configuring a
 planning area, server URL, or connection ID requires such a verifier; matching
 workbook metadata alone cannot verify them.
 
+During `Connect`, a background pywinauto watcher acknowledges the optional
+outdated-add-in warning using its OK button. It matches the warning title and
+version-message text only within the owned Excel process; other warnings are
+left untouched. The watcher stops when `Connect` returns, including on failure,
+and does not require the warning to appear. Watcher failures are logged and
+raised after `Connect` returns; they cannot interrupt a blocked COM call.
+This dialog handling has fake-window test coverage, not live SAP validation.
+
 The controller rejects nonempty filters and `refresh_only=False`: it does not
 silently apply filters or perform writeback. API refresh remains an explicit
 choice and may be disabled by your IBP administrator. There is no automatic
