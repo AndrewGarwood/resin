@@ -3,12 +3,13 @@
 """
 from __future__ import annotations as _annotations
 from dataclasses import dataclass
-from typing import Any, Callable, Generator, Self, TypeVar
+from typing import Any, Callable, Generator, Self, Sequence, TypeVar
 from uuid import uuid4
 import shutil, threading, time
 import sys
 from contextlib import contextmanager
 import win32com.client as win32
+from pywintypes import com_error
 from datetime import datetime, timedelta
 from pathlib import Path
 from lute import (LogMsg, get_logger, annotate)
@@ -46,6 +47,7 @@ from ._options import (ControllerOptions, ControllerOptionsDict)
 mlog = get_logger(__file__, name_depth=1)
 
 EXCEL_UI_LOCK = threading.RLock()
+_EXCEL_OBJECT_ERROR = -2146827284
 T = TypeVar("T")
 
 
@@ -77,12 +79,6 @@ class Controller(BaseController):
     _anchor_path: Path | None
     _verifier: BindingVerifier | None
     _identity: ConnectionIdentity
-    # _worksheet_connection_cache: dict[str, Any]
-    # """
-    # map `Worksheet.Name` to `self.ibp.GetConnections(Worksheet)`
-    # TODO: maybe should map to 
-    # { connections: self.ibp.GetConnections(ws), active_connection: self.ibp.GetActiveConnection(ws)}
-    # """
     def __init__(
         self,
         options: ControllerOptions | Json.ObjectSource[ControllerOptionsDict],
@@ -97,6 +93,8 @@ class Controller(BaseController):
         sleep: Callable[[float], None] = time.sleep,
         pump: Callable[[], None] = runtime.pump_waiting_messages,
         now: Callable[[], datetime] = datetime.now,
+        *,
+        verbose: bool=False,
     ):
         self.options = ControllerOptions.from_any(options)
         self.connection_options = ConnectionOptions.from_any(connection_options)
@@ -111,6 +109,7 @@ class Controller(BaseController):
             warning_options 
             or winauto.WindowOptionsDict(title=VERSION_WARNING_WINDOW_TITLE)
         )
+        self.verbose = verbose
         self._verifier = binding_verifier
         self._ibp = None
         self._anchor = None # anchor wb win32.CDispatch
@@ -225,29 +224,13 @@ class Controller(BaseController):
             self._ensure_binding(self._anchor, ws, deadline, force_connect=True)
     
     def _get_active_connection(self, ws: win32.CDispatch, /) -> str | None:
-        val = self.ibp.GetActiveConnection(ws)
-        return (
-            None if val is None 
-            else require.non_empty_string(
-                val,
-                f"""
-                self.ibp.GetActiveConnection(
-                    Workbook.Worksheets({safe.readattr(ws, 'Name')})
-                )
-                """
-            )
-        )
+        try:
+            return self.ibp.GetActiveConnection(ws)
+        except Exception:
+            return None
 
     def _get_worksheet_connections(self, ws: win32.CDispatch, /) -> Any:
         return self.ibp.GetConnections(ws)
-        # _name: str = require.non_empty_string(ws.Name, "Worksheet.Name")
-        # if (_name in self._worksheet_connection_cache):
-        #     val = self._worksheet_connection_cache[_name]
-        #     if (val is not None): return val
-        # _connections = self.ibp.GetConnections(ws)
-        # if (_connections is not None):
-        #     self._worksheet_connection_cache[_name] = _connections
-        # return _connections
     
     def _ensure_binding(
         self, 
@@ -374,10 +357,31 @@ class Controller(BaseController):
         format_value: Callable[[Any], T] = WorkbookProperty.default_formatter
     ) -> T:
         with self._property_workbook(wb) as opened:
-            return format_value(ManagedName.ref_range_value(opened, str(prop)))
+            name = ManagedName.entry(opened, str(prop))
+            try:
+                value = name.RefersToRange.Value
+            except com_error as e:
+                hresult = getattr(e, "hresult")
+                excepinfo = getattr(e, "excepinfo")
+                # Scalar defined names raise Excel error 1004 for RefersToRange.
+                if (hresult != _EXCEL_OBJECT_ERROR 
+                    and (
+                        not excepinfo 
+                        or (isinstance(excepinfo, Sequence)
+                            and len(excepinfo) >= 6
+                            and excepinfo[5] != _EXCEL_OBJECT_ERROR
+                        )
+                    )
+                ): 
+                    raise
+                value = name.Value
+            return format_value(value)
 
     @contextmanager
     def _property_workbook(self, wb: win32.CDispatch | WorkbookOptions) -> Generator[win32.CDispatch]:
+        """
+        context manager for reading properties of/in workbook com object
+        """
         if isinstance(wb, (WorkbookOptions, str, Path)):
             path = wb.path if isinstance(wb, WorkbookOptions) else fs.to_path(wb)
             with self.operation(path) as txn:
@@ -401,13 +405,10 @@ class Controller(BaseController):
         return value
     
     def _timestamp(self, wb: win32.CDispatch, /) -> datetime | None:
-        try:
-            return parse_refresh_timestamp(
-                ManagedName.ref_range_value(wb, WorkbookProperty.REFRESH_TIMESTAMP),
-                use_1904_epoch=bool(wb.Date1904),
-            )
-        except Exception:
-            return None
+        return parse_refresh_timestamp(
+            self.get_workbook_property(wb, WorkbookProperty.REFRESH_TIMESTAMP),
+            use_1904_epoch=bool(wb.Date1904),
+        )
 
 
     def get_last_refreshed_at(self, wb: win32.CDispatch, /) -> datetime | None:
@@ -424,6 +425,11 @@ class Controller(BaseController):
             txn.last_timestamp = current
             if current is not None and (previous is None or current > previous):
                 if current != observed:
+                    mlog.debug(LogMsg(
+                        "Observed advanced IBP refresh timestamp",
+                        previous_timestamp=previous,
+                        current_timestamp=current,
+                    ))
                     observed, changed_at = current, txn.deadline.clock()
                 if (changed_at is not None 
                     and txn.deadline.clock() - changed_at >= self.options.stable_seconds
@@ -446,9 +452,12 @@ class Controller(BaseController):
             workbook if isinstance(workbook, WorkbookOptions) 
             else WorkbookOptions(fs.to_path(workbook))
         )
-        with self.operation(wbo.path, timeout_minutes=timeout_minutes) as txn:
+        with self.operation(
+            wbo.path, 
+            timeout_minutes=timeout_minutes, 
+        ) as txn:
             with self._ui_lock(txn.deadline):
-                txn.phase = "IBP metadata"
+                txn.set_phase("Check IBP metadata before refresh")
                 self.wait_for_idle(txn.deadline)
                 txn.wb.Activate()
                 ws = txn.wb.Worksheets(wbo.sheetname)
@@ -487,7 +496,7 @@ class Controller(BaseController):
                             remaining=dt.seconds_to.minsecstr(remaining)
                         )
                     )
-                txn.phase = "IBP Connection"
+                txn.set_phase("Make IBP Connection")
                 requested, observed, connected =self._ensure_binding(
                     txn.wb, 
                     ws, 
@@ -504,8 +513,7 @@ class Controller(BaseController):
                     (value for value in (previous, baseline) if value is not None),
                     default=None,
                 )
-                
-                txn.phase = "IBP refresh dispatch"
+                txn.set_phase("IBP refresh dispatch")
                 txn.deadline.check(txn.phase)
                 refreshed_at: datetime
                 try:
@@ -516,10 +524,13 @@ class Controller(BaseController):
                             workbook=txn.wb, 
                             worksheet=ws, 
                             pid=self.session.pid,
-                            path=txn.staged_path,
-                            deadline=txn.deadline
+                            deadline=txn.deadline,
                         )
-                    txn.phase = "IBP refresh completion"
+                    mlog.debug(LogMsg(
+                        "IBP refresh dispatch returned; waiting for completion",
+                        baseline_timestamp=completion_baseline,
+                    ))
+                    txn.set_phase("IBP refresh completion")
                     refreshed_at = self._wait_timestamp(txn, completion_baseline)
                 except BaseException as e:
                     self.invalidate(e)

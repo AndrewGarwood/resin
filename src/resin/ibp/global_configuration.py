@@ -49,6 +49,7 @@ class GlobalConfigurationDict(TypedDict, total=False):
 class GlobalConfiguration(Json.Serial[GlobalConfigurationDict]):
     """
     *`@extends`* `Json.Serial[GlobalConfigurationDict]`
+    - [Enabling SAP IBP APIs](https://help.sap.com/docs/SAP_INTEGRATED_BUSINESS_PLANNING/b28ffdd739bf45678ef36c44e64652d7/2277db899c02476ea972b101f1302456.html)
     """
     EXCEL_PLANNING_VIEW_APIS: PlanningViewPermissionLevel = PlanningViewPermissionLevel.NONE
     EXCEL_MASTER_DATA_APIS: MasterDataPermissionLevel = MasterDataPermissionLevel.NONE

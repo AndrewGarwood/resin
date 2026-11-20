@@ -1,8 +1,6 @@
 """
 *`@file`* `utils/winauto/window/_legacy`
 """
-from typing import Any
-
 from resin.utils.winauto import control
 from resin.utils.winauto.exceptions import (AutomationError)
 from pywinauto import Application
@@ -75,7 +73,7 @@ def find_window_by_title(
         )
         matches = Array.filter(
             candidates, 
-            lambda x: String.contains(str(x.window_text()), title, ignore_case=True)
+            lambda x: String.contains(str(x.window_text()), title)
         )
         if not matches:
             raise AutomationError(LogMsg(

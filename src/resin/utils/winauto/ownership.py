@@ -45,4 +45,9 @@ def is_candidate_dialog(
 
     return True
 
-__all__ = export(iter_owner_chain, is_owned_by, window_process_id)
+__all__ = export(
+    iter_owner_chain, 
+    is_owned_by, 
+    window_process_id, 
+    is_candidate_dialog
+)

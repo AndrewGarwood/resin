@@ -5,9 +5,11 @@
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
-from pyqi import BaseStrEnum, export
+from pyqi._dt import (FormatString)
+from pyqi._json import (stringify as json_stringify)
+from pyqi import (BaseStrEnum, export)
 from lute import LogMsg
-from typing import (TypeVar, Generic)
+from typing import (Any, TypeVar, Generic)
 
 class ControllerState(BaseStrEnum):
     """
@@ -81,8 +83,34 @@ class RefreshOutcome(Generic[TDetails]):
     cooldown_remaining_seconds: float = 0.0
     message: str | LogMsg | None = None
 
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "status": str(self.status),
+            "path": str(self.path),
+            "started_at": self.started_at.strftime(FormatString.YMD_TIME_HYPHEN),
+            "ended_at": self.ended_at.strftime(FormatString.YMD_TIME_HYPHEN),
+            "last_refreshed_at": (
+                self.last_refreshed_at.strftime(FormatString.YMD_TIME_HYPHEN) 
+                if self.last_refreshed_at 
+                else None
+            ),
+            "publication": str(self.publication),
+            "details": str(self.details),
+            "skip_reason": self.skip_reason,
+            "cooldown_remaining_seconds": self.cooldown_remaining_seconds,
+            "message": (
+                None if not self.message 
+                else self.message.to_dict() if isinstance(self.message, LogMsg) 
+                else self.message)
+            }
+
+    def __str__(self):
+        return json_stringify(self.to_dict())
+
 __all__ = export(
-    ControllerState, RefreshStatus, 
-    PublicationDisposition, StagingPolicy, 
+    ControllerState, 
+    RefreshStatus, 
+    PublicationDisposition, 
+    StagingPolicy, 
     RefreshOutcome
 )

@@ -63,18 +63,11 @@ def naive_binding_verifier(
         return BindingObservation(BindingState.VALID, requested)
     return BindingObservation(BindingState.MISSING, None)
 
-def default_connect_result_verifier(value: Any, /) -> bool:
-    return (
-        value == None 
-        or
-        (isinstance(value, (bool, int)) and value == 1) 
-    )
 
 
 __all__ = export(
     BindingVerifier, 
     BindingObservation, 
     BindingState, 
-    default_connect_result_verifier,
     naive_binding_verifier
 )

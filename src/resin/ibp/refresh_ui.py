@@ -2,23 +2,32 @@
 *`@file`* `ibp/refresh_ui`
 """
 from pathlib import Path
-from typing import (Any, Protocol)
+import re
+import sys
+from typing import (Protocol)
 from resin.utils import (winauto)
 from resin._workbook import (Deadline)
+from win32com.client import CDispatch
 from .constants import IBP_RIBBON_TITLE
 from pyqi import export
-from lute import get_logger, LogMsg
+from lute import (get_logger, LogMsg)
 mlog = get_logger(__file__)
 
 
 class RefreshUI(Protocol):
+    """ 
+    *`note`* only `backend == 'uia'` resulted in discoverable 
+    ui elements to interact with
+    """
     def refresh(
         self,
-        workbook: Any,
-        worksheet: Any,
+        workbook: CDispatch,
+        worksheet: CDispatch,
         pid: int,
-        path: Path,
-        deadline: Deadline
+        *,
+        deadline: Deadline,
+        workbook_handle: int | None=None,
+        backend=winauto.DesktopBackend.UIA
     ) -> None: ...
 
 
@@ -33,64 +42,47 @@ class RibbonRefreshUI(RefreshUI):
 
     def refresh(
         self, 
-        workbook: Any, 
-        worksheet: Any, 
+        workbook: CDispatch, 
+        worksheet: CDispatch, 
         pid: int, 
-        path: Path, 
+        *,
         deadline: Deadline,
-        hwnd: int | None = None
+        workbook_handle: int | None = None,
+        backend=winauto.DesktopBackend.UIA
     ) -> None:
         deadline.check("IBP Refresh UI activation")
         workbook.Activate()
-        # worksheet.Activate()
-        _dict = winauto.WindowOptionsDict(process=pid, title_re=rf"^{path.name}.*")
-        if (hwnd is not None):
-            _dict['handle'] = hwnd
-        window = winauto.find_window(_dict)
-        # _, window = winauto.attach_process_to_window(pid, path.name)
-        raise NotImplementedError("oi I can't find da tab item")
-        deadline.check("Select IBP Ribbon Tab")
-        window.wait_for_idle()
-        # try: window.restore() # type: ignore
-        # except Exception: pass
-        window.set_focus()
-        # _ctrl_types = (
-        #         winauto.UiaControl.TAB_ITEM, 
-        #         winauto.CommonControl.BUTTON, 
-        #         winauto.UiaControl.TEXT,
-        #     )
-        tab = winauto.find_window(
-            winauto.WindowOptionsDict(
-                process=pid,
-                title_re=self.ribbon_tab_title,
-                top_level_only=False
-            )
+        worksheet.Activate()
+        app = winauto.connect_application(
+            pid,
+            backend=backend,
+            timeout_seconds=deadline.remaining(),
         )
-        # for c in _ctrl_types:
-        #     mlog.debug(LogMsg(
-        #         f"@ ctrl_type {c}",
-        #         f"{winauto.window.get_class(class_name=winauto.Win32Window.DIALOG, visible_only=True)=}"
-        #     ))
-        # tab = winauto.window.find_available_control(
-        #     window,
-        #     title=self.ribbon_tab_title,
-        #     ctrl_types=(
-        #         winauto.UiaControl.TAB_ITEM, 
-        #         winauto.CommonControl.BUTTON, 
-        #         winauto.UiaControl.TEXT,
-        #     )
-        # )
-        tab.wait_for_idle()
+        criteria = (
+            winauto.WindowOptionsDict(handle=workbook_handle)
+            if workbook_handle is not None
+            else winauto.WindowOptionsDict(title_re=rf"^{re.escape(workbook.Name)}.*")
+        )
+        window = app.window(**criteria)
+        window.wait("ready", timeout=deadline.remaining())
+        window.set_focus()
+        tab = window.child_window(
+            title=self.ribbon_tab_title,
+            control_type=str(winauto.UiaControl.TAB_ITEM),
+        )
+        tab.wait("ready", timeout=deadline.remaining())
+        deadline.check("Select IBP Ribbon Tab")
         tab.click_input()
         deadline.check("Find refresh button")
-        refresh_btn = winauto.window.find_available_control(
-            window, 
+        refresh_btn = window.child_window(
             title=self.refresh_btn_title,
-            ctrl_types=winauto.CommonControl.BUTTON
+            control_type=str(winauto.CommonControl.BUTTON),
         )
-        refresh_btn.wait_for_idle()
+        refresh_btn.wait("ready", timeout=deadline.remaining())
         deadline.check("Dispatch IBP refresh with click input")
+        mlog.debug("Dispatching IBP Refresh click_input")
         refresh_btn.click_input()
+        mlog.debug("IBP Refresh click_input returned")
         return None
 
 __all__ = export(RefreshUI, RibbonRefreshUI)

@@ -13,8 +13,8 @@ mlog = get_logger(__file__, name_depth=1)
 
 
 # could instead return list[str] or list[LogMsg]
-def inspect_descendants(item: BaseWrapper, /) -> None:
-    descendants = item.descendants()
+def inspect_descendants(item: BaseWrapper, /, *, visible_only: bool=True) -> None:
+    descendants = item.descendants(visible_only=visible_only)
     N = len(descendants)
     mlog.debug(LogMsg(
         f"Inspecting descendants for item:",

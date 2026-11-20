@@ -11,7 +11,7 @@ from resin.utils.winauto.exceptions import (AutomationError)
 from pywinauto import Application, Desktop
 from pywinauto.base_wrapper import BaseWrapper
 from pyqi import (
-    FlexStr, require, Array, String, 
+    require, Array, String, 
     export, Arbitrary, resolve_arbitrary
     )
 from lute import (get_logger, LogMsg)

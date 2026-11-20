@@ -92,7 +92,13 @@ def publish(
 
 class WorkbookTransaction(Generic[PhaseT]):
     phase: str | PhaseT
-    def __init__(self, owner: BaseController, path: Path, deadline: Deadline) -> None:
+    def __init__(
+        self, 
+        owner: BaseController, 
+        path: Path, 
+        deadline: Deadline,
+        verbose: bool=False,
+    ) -> None:
         self.owner = owner
         self.original_path = path
         self.staged_path = path
@@ -100,7 +106,8 @@ class WorkbookTransaction(Generic[PhaseT]):
         self.operation_id = uuid4().hex
         self.started_at = owner._now()
         self.started_monotonic = deadline.clock()
-        self.phase = "staging"
+        self.verbose = verbose
+        self.set_phase("staging")
         self.last_timestamp: datetime | None = None
         self._wb: win32.CDispatch | None = None
         self._directory: Path | None = None
@@ -114,6 +121,19 @@ class WorkbookTransaction(Generic[PhaseT]):
         if self._wb is None:
             raise WorkbookIOError("Workbook handle is not open")
         return self._wb
+
+    def set_phase(
+        self, 
+        phase: str | PhaseT, 
+        /,
+    ) -> None:
+        if self.verbose:
+            mlog.debug(LogMsg(
+                f"({self.__class__.__name__} phase change)",
+                change_from=self.phase,
+                change_to=phase
+            ))
+        self.phase = phase
 
     def error_context(self) -> dict[str, object]:
         return dict(

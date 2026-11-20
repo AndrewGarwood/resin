@@ -2,13 +2,13 @@
 *`@file`* `utils/winauto/window/utils`
 """
 from re import Pattern
-from pyqi import require
+from pyqi import require, export
 from pywinauto import WindowSpecification, Desktop
-from .options import WindowOptionsDict
+from .options import WindowOptionsDict, WindowCriteria
 from lute import LogMsg
 
 def resolve_window_options_dict(
-    value: int | str | Pattern[str] | WindowOptionsDict, 
+    value: WindowCriteria, 
     /,
 ) -> WindowOptionsDict:
     """
@@ -36,7 +36,7 @@ def resolve_window_options_dict(
 
 
 def resolve_window_specification(
-    value: int | str | Pattern[str] | WindowOptionsDict | WindowSpecification,
+    value: WindowCriteria | WindowSpecification,
     /,
     *,
     backend: str | None=None
@@ -61,6 +61,7 @@ def resolve_window_specification(
         )
     )
 
-__all__ = [
-    "resolve_window_specification", "resolve_window_options_dict",
-]
+__all__ = export(
+    resolve_window_options_dict, 
+    resolve_window_specification
+)

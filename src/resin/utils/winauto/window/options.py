@@ -1,7 +1,8 @@
 """
 *`@file`* `utils/winauto/window/options`
 """
-from typing import (TypedDict)
+from typing import (TypedDict, TypeAlias)
+from re import Pattern
 from pywinauto.element_info import ElementInfo
 
 class WindowOptionsDict(TypedDict, total=False):
@@ -27,6 +28,15 @@ class WindowOptionsDict(TypedDict, total=False):
     the target `process_id`
     """
 
+WindowCriteria: TypeAlias = str | Pattern[str] | int | WindowOptionsDict
+"""
+passed into `resolve_window_options_dict() -> WindowOptionsDict`
+- `int` → `WindowOptionsDict(handle=criteria)`
+- `str` → `WindowOptionsDict(title=criteria)`
+- `Pattern[str]` → `WindowOptionsDict(title_re=criteria.pattern)`
+- `WindowOptionsDict` → `WindowOptionsDict`
+"""
 __all__ = [
-    "WindowOptionsDict"
+    "WindowOptionsDict",
+    "WindowCriteria"
 ]

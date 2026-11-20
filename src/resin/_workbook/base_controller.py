@@ -279,7 +279,7 @@ class BaseController():
     def operation(
         self, 
         path: Path, 
-        timeout_minutes: float = 30
+        timeout_minutes: float = 30,
     ) -> Generator[WorkbookTransaction]:
         from .transaction import WorkbookTransaction
 
@@ -310,14 +310,6 @@ class BaseController():
             ) from e
         finally:
             self._busy = False
-
-    # @contextmanager
-    # def bind_session(self, session: Session, /) -> Generator[BaseController]:
-    #     raise ConfigurationError(
-    #         "Borrowed-session refresh is not supported: the save watchdog can terminate "
-    #         "the caller's Excel process. Use an owned controller."
-    #     )
-    #     yield self
 
 
 

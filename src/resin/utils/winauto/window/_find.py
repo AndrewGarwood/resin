@@ -7,10 +7,10 @@ import sys
 from resin.utils.winauto.types import (DesktopBackend, ElementSelector)
 from resin.utils.runtime import validate_polling
 from resin.utils.winauto.exceptions import (AutomationError)
-from pywinauto import Desktop, WindowSpecification
+from pywinauto import Desktop, WindowSpecification, Application
 from pywinauto.base_wrapper import BaseWrapper
 from pywinauto.controls.hwndwrapper import (DialogWrapper, HwndWrapper)
-from .options import (WindowOptionsDict)
+from .options import (WindowOptionsDict, WindowCriteria)
 from .utils import (resolve_window_options_dict, resolve_window_specification)
 from pyqi import (
     export,
@@ -23,9 +23,10 @@ mlog = get_logger(__file__, name_depth=1)
 
 @overload
 def find(
-    criteria: int | str | re.Pattern[str] | WindowOptionsDict,
+    criteria: WindowCriteria,
     /,
     *,
+    app: Application | None=None,
     backend: DesktopBackend | str | None = None,
     require_unique: bool = True,
     strict: Literal[True]=True,
@@ -35,9 +36,10 @@ def find(
 
 @overload
 def find(
-    criteria: int | str | re.Pattern[str] | WindowOptionsDict,
+    criteria: WindowCriteria,
     /,
     *,
+    app: Application | None=None,
     backend: DesktopBackend | str | None = None,
     require_unique: bool = True,
     strict: Literal[True]=True,
@@ -47,9 +49,10 @@ def find(
 
 @overload
 def find(
-    criteria: int | str | re.Pattern[str] | WindowOptionsDict,
+    criteria: WindowCriteria,
     /,
     *,
+    app: Application | None=None,
     backend: DesktopBackend | str | None = None,
     require_unique: bool = True,
     strict: Literal[False],
@@ -59,9 +62,10 @@ def find(
 
 @overload
 def find(
-    criteria: int | str | re.Pattern[str] | WindowOptionsDict,
+    criteria: WindowCriteria,
     /,
     *,
+    app: Application | None=None,
     backend: DesktopBackend | str | None = None,
     require_unique: bool = True,
     strict: Literal[False],
@@ -70,9 +74,10 @@ def find(
 ) -> WrapperT | None: ...
 
 def find(
-    criteria: int | str | re.Pattern[str] | WindowOptionsDict,
+    criteria: WindowCriteria,
     /,
     *,
+    app: Application | None=None,
     backend: DesktopBackend | str | None = None,
     require_unique: bool = True,
     strict: bool = True,
@@ -80,21 +85,24 @@ def find(
     expected_wrapper: type[WrapperT] | None = None
 ):
     """
-    calls `Desktop(backend=backend).windows(**kwargs) -> list[Unknown]`
-    - *`@param`* `criteria (int | str | re.Pattern[str] | WindowOptionsDict)`
+    calls `(app or Desktop(backend=backend)).windows(**kwargs) -> list[Unknown]`
+
+    - *`@param`* `criteria (WindowOptionsInput = str | Pattern[str] | int | WindowOptionsDict)`
         - `int` → `WindowOptionsDict(handle=criteria)`
         - `str` → `WindowOptionsDict(title=criteria)`
         - `Pattern[str]` → `WindowOptionsDict(title_re=criteria.pattern)`
         - `WindowOptionsDict` → `WindowOptionsDict`
+    - *`@param`* `app (pywinauto.application.Application)`
+        - e.g. `Application(backend=backend).connect(process=pid, timeout=timeout)`
     - *`@param`* `strict (bool)` whether to raise error if element not found
     """
     result: Any | None = None
     error: Exception | None = None
     candidates: list[BaseWrapper] | None = None
-    options = resolve_window_options_dict(criteria)
+    options = resolve_window_options_dict(criteria) if criteria is not None else dict()
     try:
         # mlog.debug(LogMsg(f"WindowOptions: {options}"))
-        candidates = Desktop(backend=backend).windows(**options)
+        candidates = (app or Desktop(backend=backend)).windows(**options)
         # mlog.debug(LogMsg(f"Found {len(candidates)} candidate(s)"))
         result = _select_element(
             candidates, 
@@ -123,6 +131,7 @@ def find(
         raise AutomationError(LogMsg.err(
             TypeError("Found element with unexpected wrapper class"),
             "Failed to find element with target wrapper class",
+            expected_wrapper=annotate(expected_wrapper),
             criteria=str(options),
             backend=backend,
             selector=annotate(selector),
@@ -130,10 +139,7 @@ def find(
             require_unique=require_unique,
             candidates=annotate(candidates),
             result=annotate(result),
-            expected_wrapper=annotate(expected_wrapper)
         ))
-
-    
     return result
 
 def _select_element(
@@ -160,10 +166,9 @@ def _select_element(
     return candidates[0]
 
 
-
 @overload
 def by_spec(
-    spec: int | str | re.Pattern[str] | WindowSpecification | WindowOptionsDict, 
+    spec: WindowCriteria | WindowSpecification, 
     /, 
     *, 
     backend: DesktopBackend | str | None = None,
@@ -175,7 +180,7 @@ def by_spec(
 
 @overload
 def by_spec(
-    spec: int | str | re.Pattern[str] | WindowSpecification | WindowOptionsDict, 
+    spec: WindowCriteria | WindowSpecification, 
     /, 
     *, 
     backend: DesktopBackend | str | None = None,
@@ -187,7 +192,7 @@ def by_spec(
 
 
 def by_spec(
-    spec: int | str | re.Pattern[str] | WindowSpecification | WindowOptionsDict, 
+    spec: WindowCriteria | WindowSpecification, 
     /, 
     *, 
     backend: DesktopBackend | str | None = None,

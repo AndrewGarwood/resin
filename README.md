@@ -110,9 +110,25 @@ choice and may be disabled by your IBP administrator. There is no automatic
 API/UI fallback and no replay after an ambiguous refresh error.
 
 Both backends wait for a stable, advanced `SOP_Refresh_Timestamp`; the API's
-invocation time is not a completion timestamp. UI refresh reuses resin's
-PID-scoped Windows helpers, scopes Refresh lookup to the selected SAP IBP ribbon,
-and serializes focus/dispatch/completion. It needs an exclusive interactive
+invocation time is not a completion timestamp. IBP defined-name properties can
+be range-backed or scalar constants: for scalar names, Excel error 1004 from
+`RefersToRange` selects `Name.Value` instead. A blank timestamp value is treated
+as unavailable; a missing name, malformed timestamp, or other COM failure now
+raises explicitly instead of being hidden as `None` throughout completion
+polling. Debug logs distinguish the return from `click_input`, the return from
+refresh dispatch, and observation of an advanced timestamp. An unchanged
+timestamp still waits only until the operation deadline (30 minutes by default;
+set `refresh(..., timeout_minutes=...)` for a shorter diagnostic run).
+UI refresh explicitly uses
+pywinauto's `uia` backend, attaches to the owned Excel PID, and finds the
+`SAP IBP` `TabItem` within the target workbook window before clicking its
+visible `Refresh` button. Both searches stay within that workbook, and readiness
+waits use the remaining operation deadline. An optional `workbook_handle`
+selects the exact window; otherwise the escaped workbook name is used.
+The default `win32` backend sees native Ribbon containers, not the accessible
+tab items, so a Win32 descendant dump can omit a visibly present `SAP IBP` tab.
+Inspect the workbook through `Application(backend="uia")` when diagnosing Ribbon
+controls. UI refresh serializes focus/dispatch/completion and needs an exclusive interactive
 Windows desktop; a locked desktop, another automation process, or user focus
 changes can interfere. Opening a controller is never a headless-login promise.
 
@@ -207,6 +223,8 @@ Run the mock-only controller suite without starting Excel or SAP:
 ```powershell
 python -m unittest discover -s tests -p test_workbook_core.py
 python -m unittest discover -s tests -p "*controller.py"
+python -m unittest discover -s tests -p test_ibp_refresh_ui.py
+python -m unittest discover -s tests -p test_ibp_completion.py
 ```
 
 ## Transaction field definitions
