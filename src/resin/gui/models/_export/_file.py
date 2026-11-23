@@ -3,7 +3,6 @@
 """
 from datetime import date
 from pathlib import Path
-from dataclasses import dataclass
 from typing import (Any, Self, TypedDict, Literal)
 from pyqi import (Json, export, dt, fs, require)
 from lute import LogMsg
@@ -13,7 +12,6 @@ class FileOptionsDict(TypedDict, total=False):
     name: str
     path: str
 
-# @dataclass
 class FileOptions(Json.Serial[FileOptionsDict]):
     """
     *`@extends`* `Json.Serial[FileOptionsDict]`
@@ -99,7 +97,7 @@ class FileOptions(Json.Serial[FileOptionsDict]):
     def path(self) -> Path:
         return self._path
     @path.setter
-    def path(self, other: fs.StrPath, /):
+    def path(self, other: fs.StrPath, /) -> None:
         self._path = fs.to_path(other)
     
     @property
@@ -113,7 +111,7 @@ class FileOptions(Json.Serial[FileOptionsDict]):
     def name(self) -> str:
         return self._path.name
     @name.setter
-    def name(self, other: str, /):
+    def name(self, other: str, /) -> None:
         self._path = self._path.with_name(
             require.non_empty_string(other, "FileOptions.name")
         )
@@ -141,8 +139,6 @@ class FileOptions(Json.Serial[FileOptionsDict]):
             "name": self.name,
             "outdir": str(self.dir)
         }
-    def __str__(self):
-        return super().__str__()
 
 
     def exists(self):

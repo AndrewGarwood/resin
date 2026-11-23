@@ -13,7 +13,7 @@ class ConnectionOptionsDict(TypedDict, total=False):
     description: str | None
     string: str | None
 
-@dataclass(frozen=True, slots=True)
+@dataclass(frozen=True, slots=True, repr=False)
 class ConnectionOptions(Json.Serial[ConnectionOptionsDict]):
     index: int | None  = None
     id: str | None  = None
@@ -34,5 +34,6 @@ class ConnectionOptions(Json.Serial[ConnectionOptionsDict]):
                 e, 
                 received=Json.serialize(data)
             )) from e
+
 
 __all__ = export(ConnectionOptionsDict, ConnectionOptions)

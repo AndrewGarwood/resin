@@ -14,7 +14,7 @@ class LayoutOptionsDict(TypedDict):
     field_id: str
     name: str
 
-@dataclass
+@dataclass(repr=False)
 class LayoutOptions(Json.Serial[LayoutOptionsDict]):
     field_id: str
     name: str
@@ -38,8 +38,7 @@ class LayoutOptions(Json.Serial[LayoutOptionsDict]):
             "field_id": self.field_id,
             "name": self.name
         }
-    def __str__(self):
-        return super().__str__()
+    
 
 
 __all__ = export(LayoutOptions, LayoutOptionsDict)

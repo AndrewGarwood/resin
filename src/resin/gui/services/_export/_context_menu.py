@@ -87,3 +87,5 @@ def via_context_menu(
             error=e, 
             message=options.failure_message()
         )
+
+__all__ = ["via_context_menu"]

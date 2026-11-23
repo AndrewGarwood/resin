@@ -14,7 +14,7 @@ class VariantOptionsDict(TypedDict):
     """ user id """
 
 
-@dataclass
+@dataclass(repr=False)
 class VariantOptions(Json.Serial[VariantOptionsDict]):
     """ 
     *`@extends`* `Json.Serial[VariantOptionsDict]`
@@ -35,9 +35,6 @@ class VariantOptions(Json.Serial[VariantOptionsDict]):
             "name": self.name,
             "created_by": self.created_by
         }
-
-    def __str__(self):
-        return super().__str__()
 
 
 __all__ = export(VariantOptionsDict, VariantOptions)

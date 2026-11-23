@@ -3,13 +3,12 @@
 """
 from __future__ import annotations
 from dataclasses import dataclass
-from typing import Any, Self
-from pyqi import (export, Result, Telemetry)
-from pyqi.utils.module import HasDunderName
+from typing import Any
+from pyqi import (export, Result, Telemetry, Json)
 from .._export.result import (CompletedExport)
 from lute import LogMsg
 
-@dataclass
+@dataclass(repr=False)
 class TransactionDetails():
     txn_id: str
     code: str
@@ -25,6 +24,12 @@ class TransactionDetails():
             "exported": self.exported.to_dict() if self.exported else None,
             "status": self.status
         }
+
+    def __str__(self) -> str:
+        return Json.stringify(self.to_dict())
+
+    def __repr__(self) -> str: 
+        return self.__str__()
 
     @property
     def has_been_exported(self):

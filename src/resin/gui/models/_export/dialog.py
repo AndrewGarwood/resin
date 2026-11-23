@@ -1,8 +1,6 @@
 """
 *`@file`* `gui/models/_export/dialog`
 """
-
-from dataclasses import dataclass
 from typing import (TypedDict, Any)
 from pyqi import (Json, export)
 from lute import LogMsg
@@ -13,7 +11,6 @@ class SaveDialogDict(TypedDict, total=False):
     filename_field_id: str
     confirm_button_id: str
 
-# @dataclass
 class SaveDialog(Json.Serial[SaveDialogDict]):
     """
     ```
@@ -43,16 +40,16 @@ class SaveDialog(Json.Serial[SaveDialogDict]):
                 confirm_button_id=data.get("confirm_button_id")
             )
         except Exception as e:
-            raise RuntimeError(LogMsg.err(e, received=Json.serialize(data))) from e
+            raise RuntimeError(LogMsg.err(
+                e, received=Json.serialize(data)
+            )) from e
 
-    # def to_dict(self) -> SaveDialogDict | dict[str, Any]:
-    #     return {
-    #         "dirpath_field_id": self.dirpath_field_id,
-    #         "filename_field_id": self.filename_field_id,
-    #         "confirm_button_id": self.confirm_button_id
-    #     }
-    def __str__(self):
-        return super().__str__()
+    def to_dict(self) -> SaveDialogDict | dict[str, Any]:
+        return {
+            "dirpath_field_id": self.dirpath_field_id,
+            "filename_field_id": self.filename_field_id,
+            "confirm_button_id": self.confirm_button_id
+        }
 
 
 __all__ = export(SaveDialogDict, SaveDialog)

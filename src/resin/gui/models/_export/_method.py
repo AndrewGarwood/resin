@@ -1,11 +1,9 @@
 """
 *`@file`* `gui/models/_export/method`
 """
-from dataclasses import dataclass
 from typing import (Self, TypedDict, Any, )
 from pyqi import (String, Json, export, guard)
 from lute import LogMsg
-
 from resin.gui.utils import gui_id as GUI
 
 class ExportMethod(String.BaseEnum):
@@ -34,7 +32,6 @@ class InvokeMethodOptionsDict(TypedDict, total=False):
     menu_item_position: str
     menu_element_class: str
 
-# @dataclass
 class InvokeMethodOptions(Json.Serial[InvokeMethodOptionsDict]):
     """
     ```
@@ -113,9 +110,6 @@ class InvokeMethodOptions(Json.Serial[InvokeMethodOptionsDict]):
                 received=Json.serialize(data)
             )) from e
     
-    def __str__(self):
-        return super().__str__()
-
 
 __all__ = export(
     ExportMethod, 

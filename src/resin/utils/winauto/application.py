@@ -6,8 +6,7 @@ from typing import Any
 from pyqi import require, export
 from .types import DesktopBackend
 from pywinauto import (Application)
-from pywinauto.backend import name as get_backend_name
-
+from .tools import get_backend_name
 
 
 def connect(
@@ -27,7 +26,6 @@ def connect(
         kwargs["handle"] = handle
     if (path):
         kwargs["path"] = path
-    
     return (
         Application(
             backend=(backend or get_backend_name())

@@ -11,6 +11,7 @@ from resin.utils.winauto import (
     DesktopBackend, 
     ControlOptions, 
 )
+from resin.utils.winauto.tools import get_backend_name
 from .constants import (
     DEFAULT_OVERWRITE_CONFIRM_BUTTON_OPTIONS, 
     DEFAULT_OVERWRITE_DIALOG_OPTIONS, 
@@ -19,6 +20,28 @@ from .constants import (
     DEFAULT_SAVE_EDIT_OPTIONS,
     default_dialog_selector
 )
+
+
+@dataclass
+class NativeSaveDialogOptions:
+    save_dialog: ControlOptions = _field(default=DEFAULT_SAVE_DIALOG_OPTIONS)
+    save_edit_selector: Callable[[Iterable[Any]], Any] = _field(default=default_dialog_selector)
+    save_edit: ControlOptions = _field(default=DEFAULT_SAVE_EDIT_OPTIONS)
+    save_btn: ControlOptions = _field(default=DEFAULT_SAVE_BUTTON_OPTIONS)
+    overwrite_dialog: ControlOptions = _field(default=DEFAULT_OVERWRITE_DIALOG_OPTIONS)
+    overwrite_btn: ControlOptions = _field(default=DEFAULT_OVERWRITE_CONFIRM_BUTTON_OPTIONS)
+    retry: RetryOptions = _field(default_factory=RetryOptions)
+    backend: DesktopBackend | str | None = None
+
+
+    def __post_init__(self):
+        if (not self.backend):
+            self.backend = get_backend_name()
+
+
+__all__ = export(NativeSaveDialogOptions)
+
+
 # def _find_filename_edit(dialog):
 #     candidates = [
 #         control
@@ -38,19 +61,3 @@ from .constants import (
 #         f"Unable to uniquely identify filename edit; "
 #         f"found {len(candidates)} available Edit controls"
 #     )
-
-
-
-@dataclass
-class NativeSaveDialogOptions:
-    save_dialog: ControlOptions = _field(default=DEFAULT_SAVE_DIALOG_OPTIONS)
-    save_edit_selector: Callable[[Iterable[Any]], Any] = _field(default=default_dialog_selector)
-    save_edit: ControlOptions = _field(default=DEFAULT_SAVE_EDIT_OPTIONS)
-    save_btn: ControlOptions = _field(default=DEFAULT_SAVE_BUTTON_OPTIONS)
-    overwrite_dialog: ControlOptions = _field(default=DEFAULT_OVERWRITE_DIALOG_OPTIONS)
-    overwrite_btn: ControlOptions = _field(default=DEFAULT_OVERWRITE_CONFIRM_BUTTON_OPTIONS)
-    retry: RetryOptions = _field(default_factory=RetryOptions)
-    backend: DesktopBackend | None = None
-
-
-__all__ = export(NativeSaveDialogOptions)

@@ -17,6 +17,8 @@ class ControlOptionsDict(TypedDict, total=False):
 class ControlOptions(Json.Serial[ControlOptionsDict]):
     """
     *`@extends`* `Serial[ControlOptionsDict]`
+
+    **deprecated** - should just make/use a typed dict
     """
     def __init__(
         self, 

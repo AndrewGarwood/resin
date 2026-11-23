@@ -1,8 +1,7 @@
 """
 *`@file`* `gui/models/_export/layout`
 """
-from dataclasses import dataclass
-from typing import (TypedDict, Required, NotRequired, Any, Optional, Mapping)
+from typing import (TypedDict, Required, NotRequired, Any,  Mapping)
 from pyqi import (Json, require, export)
 from lute import (LogMsg)
 
@@ -21,7 +20,7 @@ class LayoutSelectorDict(TypedDict):
     name: str
     """ i.e. layout variant name """
     iter_reverse: bool
-@dataclass
+
 class LayoutSelector(Json.Serial[LayoutSelectorDict]):
     """
     select layout after transaction executes.
@@ -29,15 +28,16 @@ class LayoutSelector(Json.Serial[LayoutSelectorDict]):
     """
     name: str
     grid_id: str
-    btn_id: Optional[str]=None
-    vkey: Optional[int]=None
-    iter_reverse: bool = False # value depends on how SAP sorts items in the grid...
+    btn_id: str | None=None
+    vkey: int | None=None
+    iter_reverse: bool = False # depends on how SAP sorts items in the grid...
+    
     def __init__(
         self, 
         name: str, 
         grid_id: str, 
-        button_id: Optional[str]=None, 
-        vkey: Optional[int]=None,
+        button_id: str | None=None, 
+        vkey: int | None=None,
         iter_reverse: bool = False
     ):
         self.name = require.non_empty_string(name, "LayoutSelector.name")
@@ -69,10 +69,11 @@ class LayoutSelector(Json.Serial[LayoutSelectorDict]):
                 iter_reverse=data.get("iter_reverse", False)
             )
         except Exception as e:
-            raise Exception(LogMsg.err(error=e, received=Json.serialize(data))) from e
+            raise RuntimeError(LogMsg.err(
+                error=e, 
+                received=Json.serialize(data)
+            )) from e
     
-    def __str__(self):
-        return super().__str__()
 
 
 

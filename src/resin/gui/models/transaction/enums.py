@@ -3,9 +3,9 @@
 """
 from __future__ import annotations
 from enum import auto
-from pyqi import (String, export)
+from pyqi import (BaseStrEnum, export)
 
-class TransactionStage(String.BaseEnum):
+class TransactionStage(BaseStrEnum):
     """
     ```
     CREATED = auto()
@@ -38,7 +38,7 @@ class TransactionStage(String.BaseEnum):
 
 
 
-class ExecutionType(String.BaseEnum):
+class ExecutionType(BaseStrEnum):
     """
     ```
     STANDARD = "standard"

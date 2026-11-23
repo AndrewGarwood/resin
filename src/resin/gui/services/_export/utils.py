@@ -9,7 +9,7 @@ from resin.utils.winauto import (
     DesktopBackend, 
     Win32Window, 
     AutomationError, 
-    window
+    window,
 )
 
 from resin.gui.models import (ExportOptions, LayoutSelector)
@@ -34,7 +34,6 @@ def resolve_native_save_options(
             else save_options if isinstance(save_options, NativeSaveDialogOptions) 
             else save_options()
         )
-
 
 
 def select_export_menu_item(

@@ -80,44 +80,5 @@ def handle_export_dialog(
     raise TimeoutError(
         f"No export dialog was handled within {timeout:.1f} seconds"
     )
-# def handle_export_dialog(
-#     session: Session, 
-#     options: ExportOptions, 
-#     watcher: NativeSaveDialogWatcher, 
-#     /,
-#     *,
-#     timeout: float = 30.0,
-# ) -> None:
-#     deadline = time.monotonic() + timeout
-#     handled = _try_native_dialog(options, watcher, timeout=5.0)
-#     if (handled): 
-#         return None
-#     handled = _try_sapgui_dialog(session, options)
-#     if (handled):
-#         mlog.debug(f"Handled SAPGUI export dialog")
-#         return None
-#     mlog.debug(LogMsg(f"SAPGUI dialog not detected, waiting for watcher. . ."))
-#     handled = _try_native_dialog(options, watcher, timeout=10.0)
-#     if (not handled):
-#         raise TimeoutError(LogMsg(
-#             f"Watcher timeout exceeded, no export dialog handled"
-#         ))
-#     return None
-
-# def _try_native_dialog(
-#     options: ExportOptions, 
-#     watcher: NativeSaveDialogWatcher, 
-#     /,
-#     timeout:float = 30.0
-# ) -> bool:
-#     if (watcher.wait_handled(timeout=timeout)):
-#         mlog.debug(f"Native save dialog handled by watcher within {timeout=}s")
-#         return True
-#     if (options.file.exists()):
-#         mlog.debug(f"outpath already exists; treating as completed")
-#         watcher.mark_handled()
-#         return True
-#     return False
-
 
 __all__ = export(handle_export_dialog)

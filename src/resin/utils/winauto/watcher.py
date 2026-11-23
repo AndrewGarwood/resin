@@ -25,7 +25,7 @@ class NativeDialogWatcher(ABC, Generic[DialogOptionsT, WrapperT]):
     handled: bool = False
     timed_out: bool = False
     error: Optional[BaseException] = None
-    backend: DesktopBackend | None = None
+    backend: DesktopBackend | str | None = None
     
     # @property
     # def outpath(self) -> Path:
@@ -65,11 +65,11 @@ class NativeDialogWatcher(ABC, Generic[DialogOptionsT, WrapperT]):
 
 
     
-    def wait_done(self, timeout: Optional[float] = None) -> bool:
+    def wait_done(self, timeout: float | None = None) -> bool:
         self.done.wait(timeout)
         return self.done.is_set()
 
-    def wait(self, timeout: Optional[float] = None) -> bool:
+    def wait(self, timeout: float | None = None) -> bool:
         self.done.wait(timeout)
         return self.handled
 

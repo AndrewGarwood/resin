@@ -43,7 +43,7 @@ class ScreenFieldSelectionDict(TypedDict, total=False):
     step_out: ScreenStepDict | None
 
 
-@dataclass
+@dataclass(repr=False)
 class ScreenFieldSelection(Json.Serial[ScreenFieldSelectionDict]):
     step_in: ScreenStep # default to F5 ?
     fields: dict[str, Any]
@@ -63,7 +63,10 @@ class ScreenFieldSelection(Json.Serial[ScreenFieldSelectionDict]):
                 step_out = ScreenStep.from_dict(_out_value) if _out_value else None
             )
         except Exception as e:
-            raise RuntimeError(LogMsg.err(e, received=Json.serialize(data))) from e
+            raise RuntimeError(LogMsg.err(
+                e, 
+                received=Json.serialize(data)
+            )) from e
 
     def with_fields(
         self, 

@@ -65,3 +65,7 @@ def via_keyboard_shortcut(
             message=options.failure_message(),
             status=session.get_status()
         )
+
+
+
+__all__ = ["via_keyboard_shortcut"]

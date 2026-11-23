@@ -3,6 +3,7 @@
 """
 
 from dataclasses import dataclass
+import sys
 import time, re
 import win32gui
 from pathlib import Path
@@ -20,7 +21,6 @@ from resin.utils import winauto
 from resin.utils.winauto import (
     inspect_descendants, 
     AutomationError, 
-    control_is_available, 
     is_owned_by, 
 )
 from .constants import (NATIVE_SAVE_DIALOG_POLL, NATIVE_SAVE_DIALOG_TIMEOUT)
@@ -44,7 +44,7 @@ class NativeSaveDialogWatcher(NativeDialogWatcher[NativeSaveDialogOptions, BaseW
             dlg.set_focus()
             edits: list[BaseWrapper] = Array.filter(
                 dlg.descendants(class_name=options.save_edit.class_name), 
-                control_is_available
+                winauto.control_is_available
             )
             if (not edits):
                 mlog.error(LogMsg(
@@ -69,7 +69,7 @@ class NativeSaveDialogWatcher(NativeDialogWatcher[NativeSaveDialogOptions, BaseW
                         title_re=pat,
                         class_name=options.save_btn.class_name
                     ),
-                    control_is_available
+                    winauto.control_is_available
                 )
                 if (not btns):
                     raise RuntimeError(f"No available save button found")
@@ -87,9 +87,9 @@ class NativeSaveDialogWatcher(NativeDialogWatcher[NativeSaveDialogOptions, BaseW
                 dlg.type_keys("{ENTER}")
             time.sleep(0.1)
             handle_overwrite(
-                options.backend, 
+                options.backend,
                 options.overwrite_dialog, 
-                options.overwrite_btn
+                options.overwrite_btn,
             )
             self.mark_handled()
             time.sleep(1.0)
@@ -158,8 +158,7 @@ def _save_worker(
     try:
         with com_apartment():
             deadline = time.monotonic() + timeout
-            desktop = Desktop(backend=str(options.backend))
-
+            desktop = Desktop(backend=winauto.get_backend_name())
             if owner_hwnd is not None:
                 mlog.debug(LogMsg(
                     "Native save watcher started",
@@ -199,14 +198,13 @@ def _save_worker(
                 claimed_handle = handle
 
                 try:
-                    if not win32gui.IsWindow(handle):
-                        continue
-
-                    if not control_is_available(wrapper):
-                        continue
-
                     if (
-                        owner_hwnd is not None
+                        not win32gui.IsWindow(handle) 
+                        or not winauto.control_is_available(wrapper)
+                    ):
+                        continue
+
+                    if (owner_hwnd is not None
                         and not is_owned_by(handle, owner_hwnd)
                     ):
                         continue
@@ -235,16 +233,12 @@ def _save_worker(
 
     except BaseException as e:
         watcher.error = e
-
-        mlog.exception(
-            LogMsg.err(
-                e,
-                "Native save dialog watcher failed",
-                owner_hwnd=owner_hwnd,
-                outpath=str(outpath),
-            )
-        )
-
+        mlog.exception(LogMsg.err(
+            e,
+            "Native save dialog watcher failed",
+            owner_hwnd=owner_hwnd,
+            outpath=str(outpath),
+        ))
     finally:
         if claimed_handle is not None:
             NATIVE_DIALOG_HANDLE_LM.release_handle(
@@ -329,7 +323,7 @@ def _find_save_dialog(
             if not win32gui.IsWindow(handle):
                 continue
 
-            if not control_is_available(candidate):
+            if not winauto.control_is_available(candidate):
                 continue
 
             title = candidate.window_text()

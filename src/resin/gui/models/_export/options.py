@@ -20,7 +20,7 @@ class ExportOptionsDict(TypedDict, total=False):
     file: FileOptionsDict
     save: SaveDialogDict
 
-@dataclass
+@dataclass(repr=False)
 class ExportOptions(Json.Serial[ExportOptionsDict]):
     """
     *`@extends`* `Json.Serial[ExportOptionsDict]`
@@ -86,7 +86,10 @@ class ExportOptions(Json.Serial[ExportOptionsDict]):
         }
     
     def __str__(self):
-        return super().__str__()
+        return Json.to_str(self.to_dict())
+
+    def __repr__(self): 
+        return self.__str__()
 
 
 __all__ = export(ExportOptions, ExportOptionsDict)

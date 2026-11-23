@@ -3,8 +3,7 @@
 """
 from pathlib import Path
 from dataclasses import dataclass, field
-from json import dumps
-from pyqi import (export, Result, Telemetry)
+from pyqi import (export, Result, Telemetry, Json)
 
 @dataclass
 class ExportDetails:
@@ -48,7 +47,7 @@ class CompletedExport(ExportDetails):
         }
 
     def __str__(self):
-        return dumps(self.to_dict(), indent=4)
+        return Json.to_str(self.to_dict(), indent=4)
 
 
 __all__ = export(ExportDetails, CompletedExport)

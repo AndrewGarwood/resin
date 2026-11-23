@@ -26,7 +26,7 @@ class TransactionOptionsDict(TypedDict, total=False):
 
 
 
-@dataclass
+@dataclass(repr=False)
 class TransactionOptions(Json.Serial[TransactionOptionsDict]):
     """
     *`@extends`* `Json.Serial[TransactionOptionsDict]`
@@ -69,6 +69,7 @@ class TransactionOptions(Json.Serial[TransactionOptionsDict]):
                 _id=data.get('id', None),
                 screens=Array.map(data.get('screens', []), ScreenFieldSelection.from_dict)
             )
+        except (KeyError, ValueError): raise
         except Exception as e:
             raise RuntimeError(LogMsg.err(
                 e, 
@@ -134,5 +135,8 @@ class TransactionOptions(Json.Serial[TransactionOptionsDict]):
 
     def __str__(self):
         return Json.to_str(self.to_dict())
+
+    def __repr__(self) -> str:
+        return self.__str__()
 
 __all__ = export(TransactionOptions, TransactionOptionsDict)

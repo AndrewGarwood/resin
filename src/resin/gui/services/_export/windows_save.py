@@ -3,7 +3,7 @@
 - after ExportOptions.invoke, when get windows native dialog instead of sapgui dialog
 """
 from __future__ import annotations
-import time
+import time, sys
 from typing import (Any,  Literal)
 from pyqi import (require)
 from pyqi.models import (RetryOptions, )
@@ -15,7 +15,7 @@ from resin.utils.winauto import (DesktopBackend,
 mlog = get_logger(__file__, name_depth=2)
 
 def handle_overwrite(
-    backend: DesktopBackend | None, 
+    backend: DesktopBackend | str | None, 
     dlg_ctrl: ControlOptions, 
     btn_ctrl: ControlOptions, 
     *, 

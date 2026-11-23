@@ -62,3 +62,5 @@ def via_toolbar(
             message=options.success_message(),
             status=session.get_status()
         )
+
+__all__ = ["via_toolbar"]
