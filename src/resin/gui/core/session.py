@@ -429,7 +429,9 @@ class Session(FindMixin):
         /,
     ) -> str:
         try:
-            result = self._com.GetVKeyDescription(require.positive_integer(key, "vkey"))
+            result = self._com.GetVKeyDescription(
+                require.non_negative_integer(key, "vkey")
+            )
         except Exception as e:
             raise SapComError(
                 f"Unable to obtain the description for SAP virtual key "
@@ -517,7 +519,6 @@ class Session(FindMixin):
         timeout: float=5.0, 
         poll_interval: float=0.1
     ) -> ComponentT: ...
-
 
     @overload
     def wait_for_component(

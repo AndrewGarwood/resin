@@ -7,7 +7,7 @@ from pyqi import require
 
 from ..com.gateway import ComGateway
 from ..com.types import DispatchLike
-from ..com import runtime
+from resin.utils import runtime
 from ..config import AppManager
 from ..context import SapContext
 from ..exceptions import (

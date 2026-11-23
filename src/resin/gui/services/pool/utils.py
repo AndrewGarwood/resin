@@ -6,7 +6,8 @@ from resin.utils import runtime
 from resin.gui.core.application import Application
 from .session_locator import (SessionLocator)
 from .session_binding import (SessionBinding)
-from pyqi import Array, require, export, fs
+from pyqi import Array, require, export
+from pyqi.fs import launch_executable
 from resin.gui.config import (AppManager)
 
 def discover_session_locators() -> list[SessionLocator]:
@@ -80,8 +81,9 @@ def provision_session_bindings(
 
 def default_sap_gui_launcher() -> None:
     """ `fs.launch_executable(AppManager.exe())` """
-    _ = fs.launch_executable(AppManager.exe())
+    _ = launch_executable(AppManager.exe())
     time.sleep(2)
+    return None
 
 __all__ = export(
     provision_session_bindings, 

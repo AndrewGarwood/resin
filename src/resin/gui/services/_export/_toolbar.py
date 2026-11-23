@@ -12,7 +12,7 @@ from .registry import (EXPORT_METHOD_REGISTRY)
 from .watcher import (native_save_dialog_watcher, NativeSaveDialogOptions)
 from .locks import EXPORT_UI_LM
 from .utils import (attempt_row_count, resolve_native_save_options)
-from .dialog import (handle_export_dialog)
+from .dialog import (handle_export_dialog, _retain_scripting_session)
 
 
 
@@ -34,7 +34,7 @@ def via_toolbar(
             name=f"ExportOptions<{ExportMethod.TOOLBAR_BUTTON.value}>.invoke.button_id"
         )
         save_options = resolve_native_save_options(save_dialog_options)
-        with EXPORT_UI_LM.engage_lock():
+        with EXPORT_UI_LM.engage_lock(), _retain_scripting_session(session):
             wnd = session.main_window
             wnd_handle = wnd.handle
             with native_save_dialog_watcher(

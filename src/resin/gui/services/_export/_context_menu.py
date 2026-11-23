@@ -16,7 +16,7 @@ from .registry import (EXPORT_METHOD_REGISTRY)
 from .watcher import (native_save_dialog_watcher, NativeSaveDialogOptions)
 from .locks import EXPORT_UI_LM
 from .utils import (open_grid_context_menu_pywinauto, resolve_native_save_options)
-from .dialog import (handle_export_dialog)
+from .dialog import (handle_export_dialog, _retain_scripting_session)
 from .constants import (NATIVE_SAVE_DIALOG_TIMEOUT, NATIVE_SAVE_DIALOG_POLL)
 
 # TODO: try invoking context menu without pywinauto by selecting a cell first;
@@ -47,7 +47,7 @@ def via_context_menu(
         )
         grid_handle = grid.handle
         row_count = grid.row_count
-        with EXPORT_UI_LM.engage_lock():
+        with EXPORT_UI_LM.engage_lock(), _retain_scripting_session(session):
             wnd = session.main_window
             wnd_handle = wnd.handle
             with native_save_dialog_watcher(
@@ -56,6 +56,7 @@ def via_context_menu(
                 owner_hwnd=wnd_handle,
             ) as watcher:
                 menu_item_id = options.invoke.menu_item_id or GUI.EXCEL_EXPORT_FUNCTION_CODE
+                
                 open_grid_context_menu_pywinauto(
                     main_wnd_handle=wnd_handle, 
                     grid_handle=grid_handle, 
@@ -63,6 +64,7 @@ def via_context_menu(
                     menu_class=options.invoke.menu_element_class or Win32Window.POPUP
                 )
                 time.sleep(0.5)
+                # grid.context_menu()
                 grid.select_context_menu_item(menu_item_id)
                 session.press_button(options.save.confirm_button_id)
                 # confirm_btn = wait_for_component(

@@ -42,10 +42,16 @@ class NativeSaveDialogWatcher(NativeDialogWatcher[NativeSaveDialogOptions, BaseW
         try:
             outpath.parent.mkdir(parents=True, exist_ok=True)
             dlg.set_focus()
-            edits: list[BaseWrapper] = Array.filter(
-                dlg.descendants(class_name=options.save_edit.class_name), 
-                winauto.control_is_available
-            )
+            edits: list[BaseWrapper] = []
+            control_deadline = time.monotonic() + 5.0
+            while not self.cancel.is_set():
+                edits = Array.filter(
+                    dlg.descendants(class_name=options.save_edit.class_name),
+                    winauto.control_is_available
+                )
+                if edits or time.monotonic() >= control_deadline:
+                    break
+                self.cancel.wait(0.1)
             if (not edits):
                 mlog.error(LogMsg(
                     f"No valid '{options.save_edit.class_name}' controls found"
