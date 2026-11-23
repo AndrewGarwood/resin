@@ -57,7 +57,6 @@ class RefreshDetails():
     observed_connection: ConnectionIdentity | None
     connect_called: bool
     binding_reused: bool | None = None
-    publication: PublicationDisposition = PublicationDisposition.NOT_ATTEMPTED
 
 
 class Controller(BaseController):
@@ -448,6 +447,24 @@ class Controller(BaseController):
         timeout_minutes: float = 30,
         force: bool=False
     ) -> RefreshOutcome[RefreshDetails]:
+        """
+        *`@returns`* `outcome (RefreshOutcome[RefreshDetails]) (class)`
+        ```
+        status: RefreshStatus
+        path: Path # updated data workbook is here
+        operation_id: str
+        started_at: datetime
+        ended_at: datetime
+        elapsed_seconds: float
+        last_refreshed_at: datetime | None
+        refreshed_at: datetime | None
+        publication: PublicationDisposition
+        details: RefreshDetails
+        skip_reason: str | None = None
+        cooldown_remaining_seconds: float = 0.0
+        message: str | LogMsg | None = None
+        ```
+        """
         wbo = (
             workbook if isinstance(workbook, WorkbookOptions) 
             else WorkbookOptions(fs.to_path(workbook))
@@ -535,7 +552,8 @@ class Controller(BaseController):
                 except BaseException as e:
                     self.invalidate(e)
                     raise
-            dispo = txn.commit()
+            txn.commit() # handles publication disposition
+            _cooldown_delta = timedelta(seconds=self.options.cooldown_seconds)
             return txn.outcome(
                 RefreshStatus.REFRESHED,
                 last_refreshed_at=previous, 
@@ -545,7 +563,6 @@ class Controller(BaseController):
                     observed, 
                     connected, 
                     not connected, 
-                    dispo
                 ),
                 cooldown_remaining_seconds=self.options.cooldown_seconds,
                 message=LogMsg(
@@ -558,10 +575,13 @@ class Controller(BaseController):
                         else "<unavailable>"
                     ),
                     next_refresh_available_at=(
-                        refreshed_at 
-                        + timedelta(seconds=self.options.cooldown_seconds)
-                    ).isoformat()
-                )
+                        refreshed_at + _cooldown_delta
+                    ).isoformat(),
+                    time_until_next_refresh_available=dt.seconds_to.minsecstr(
+                        ((refreshed_at+_cooldown_delta) - dt.now()).total_seconds()
+                    )
+                ),
+                
             )
 
 __all__ = export(Controller, RefreshDetails)
