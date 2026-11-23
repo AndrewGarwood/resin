@@ -75,13 +75,11 @@ class Container(Component, FindMixin, Generic[ChildT]):
                     f"Child {index} of component {self.id!r} was None"
                 )
 
-            children.append(
-                wrap_dispatch(
-                    child_dispatch,
-                    gateway=self.gateway,
-                    context=self.context,
-                )
-            )
+            children.append(wrap_dispatch(
+                child_dispatch,
+                gateway=self.gateway,
+                context=self.context,
+            ))
 
         return tuple(children)
 

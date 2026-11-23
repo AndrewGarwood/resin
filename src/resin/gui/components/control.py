@@ -25,7 +25,9 @@ class CheckBox(VComponent):
         depending on ABAP Screen Painter definition. 
         """
         return self._gateway.get_property(
-            self._resolve(), "Selected", bool, 
+            self._resolve(), 
+            "Selected", 
+            bool, 
             _raise=True,
             source=self.__class__.__name__
         )
@@ -34,9 +36,9 @@ class CheckBox(VComponent):
         self._resolve().Selected = value
     
     @busy_safe()
-    def set(self, value: bool, /):
+    def set(self, value: bool, /) -> None:
         self._resolve().Selected = value
-        return self.session
+        return None
 
 @register_component()
 class TextField(VComponent):
@@ -51,7 +53,7 @@ class TextField(VComponent):
         return self._com.Text
     
     @busy_safe()
-    def set(self, value: str, /):
+    def set(self, value: str, /) -> None:
         obj = self._resolve()
         value = "" if value is None else str(value)
         changeable = self._gateway.get_property(
@@ -66,7 +68,7 @@ class TextField(VComponent):
         try:
             if (not changeable):
                 if str(current_text) == value:
-                    return self.session
+                    return None
                 raise SapComError(f"Field is not changeable")
             try:
                 obj.SetFocus()
@@ -81,11 +83,11 @@ class TextField(VComponent):
                 f"diagnostics:", 
                 *debug_component(obj)
             )) from e
-        return self.session
+        return None
 
-    def clear(self):
+    def clear(self) -> None:
         self.set("")
-        return self
+        return None
 
 @register_component()
 class CTextField(TextField):
@@ -97,11 +99,13 @@ class CTextField(TextField):
 @register_component()
 class Tab(VComponent, VContainer): 
     @busy_safe()
-    def select(self):
+    def select(self) -> None:
         self._resolve().Select()
+        return None
 
-    def scroll_to_left(self):
+    def scroll_to_left(self) -> None:
         self._resolve().ScrollToLeft()
+        return None
 
 
 @register_component()
@@ -117,15 +121,17 @@ class Label(VComponent):
     
 @register_component()
 class Button(Component):
-    def press(self): 
+    def press(self) -> None: 
         self._resolve().Press()
-        return self.session
+        return None
+
 
 @register_component()
 class RadioButton(VComponent):
     @busy_safe()
-    def select(self):
+    def select(self) -> None:
         self._resolve().Select()
+        return None
 
     @property
     def group_members(self) -> Any:
