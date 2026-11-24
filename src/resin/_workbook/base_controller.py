@@ -58,7 +58,7 @@ class BaseController():
         - *`@param`* `session_factory` `() -> Session | None`
             - used as `context manager` arg in `stack.enter_context`
         """
-        self.options = BaseControllerOptions.from_any(options)
+        self.options = BaseControllerOptions.from_object_source(options)
         self._session_factory = session_factory or default_session_factory
         self._session: ExcelSession | None = None
         self._state = ControllerState.NEW

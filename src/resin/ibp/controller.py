@@ -58,6 +58,18 @@ class RefreshDetails():
     connect_called: bool
     binding_reused: bool | None = None
 
+    def to_dict(self):
+        return {
+            "requested_connection": self.requested_connection.to_dict(),
+            "observed_connection": (
+                self.observed_connection.to_dict() 
+                if self.observed_connection 
+                else None
+            ),
+            "connect_called": self.connect_called,
+            "binding_reused": self.binding_reused
+        }
+
 
 class Controller(BaseController):
     """
@@ -95,10 +107,10 @@ class Controller(BaseController):
         *,
         verbose: bool=False,
     ):
-        self.options = ControllerOptions.from_any(options)
-        self.connection_options = ConnectionOptions.from_any(connection_options)
+        self.options = ControllerOptions.from_object_source(options)
+        self.connection_options = ConnectionOptions.from_object_source(connection_options)
         self.api_config = (
-            GlobalConfiguration.from_any(api_config) 
+            GlobalConfiguration.from_object_source(api_config) 
             if api_config 
             else GlobalConfiguration()
         )
@@ -521,8 +533,6 @@ class Controller(BaseController):
                 )
                 txn.wb.Activate()
                 ws.Activate()
-                self.wait_for_idle(txn.deadline)
-                
                 self.wait_for_idle(txn.deadline)
                 baseline = self._timestamp(txn.wb)
                 txn.last_timestamp = baseline

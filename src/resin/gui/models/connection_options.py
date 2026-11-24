@@ -21,8 +21,13 @@ class ConnectionOptions(Json.Serial[ConnectionOptionsDict]):
     string: str | None = None
 
     @classmethod
-    def from_dict(cls, data: ConnectionOptionsDict | dict[str, Any]) -> Self:
+    def from_dict(cls, data: ConnectionOptionsDict | dict[str, Any] | str, ) -> Self:
+        """
+        if `data` is `str` return `cls(description=data)` (assume it's the description str)
+        """
         try:
+            if (isinstance(data, str)):
+                return cls(description=data)
             return cls(
                 index=data.get('index'),
                 id=data.get('id'),
@@ -32,6 +37,7 @@ class ConnectionOptions(Json.Serial[ConnectionOptionsDict]):
         except Exception as e:
             raise RuntimeError(LogMsg.err(
                 e, 
+                "Failed to construct SAPGUI ConnectionOptions",
                 received=Json.serialize(data)
             )) from e
 

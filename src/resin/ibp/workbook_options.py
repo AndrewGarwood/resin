@@ -73,10 +73,13 @@ class WorkbookOptions(Json.Serial[WorkbookOptionsDict]):
         self._data_origin = value
 
     @property
-    def header_origin(self):
+    def header_origin(self) -> CellAddress:
+        """
+        *`@returns`* `self.data_origin.offset(rows=-1)`
+        """
         return self.data_origin.offset(rows=-1)
     @property
-    def info_addr(self):
+    def info_addr(self) -> CellAddress:
         return self.header_origin.offset(rows=-1)
 
     def with_path(

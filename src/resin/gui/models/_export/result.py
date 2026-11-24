@@ -11,7 +11,7 @@ class ExportDetails:
     row_count: int | None = None
 
 
-# ExportResult = Result[ExportDetails]
+# ExportResult = Result[ExportDetails] # pylance no like this
 # class ExportResult(Result[ExportDetails]): 
 #     """ 
 #     *`@extends`* `Result[ExportDetails]`
@@ -19,7 +19,7 @@ class ExportDetails:
 #     def __init__(self, *args, **kwargs):
 #         super().__init__(*args, **kwargs)
 
-@dataclass
+@dataclass(repr=False)
 class CompletedExport(ExportDetails):
     """ *`@extends`* `ExportDetails`"""
     tel: Telemetry = field(default_factory=Telemetry)
@@ -34,8 +34,6 @@ class CompletedExport(ExportDetails):
     def path_exists(self):
         """
         *`@returns`* `self.path is not None and self.path.is_file()`
-        - not sure if it's possible to do type guard Path on prop of self
-            - at least in 3.11.3
         """
         return (self.path is not None and self.path.is_file())
     
@@ -49,5 +47,7 @@ class CompletedExport(ExportDetails):
     def __str__(self):
         return Json.to_str(self.to_dict(), indent=4)
 
+    def __repr__(self) -> str:
+        return self.__str__()
 
 __all__ = export(ExportDetails, CompletedExport)

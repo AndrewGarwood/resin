@@ -6,7 +6,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
 from pyqi._dt import (FormatString)
-from pyqi._json import (stringify as json_stringify)
+from pyqi._json import (stringify as json_stringify, SupportsToDict)
 from pyqi import (BaseStrEnum, export)
 from lute import LogMsg
 from typing import (Any, TypeVar, Generic)
@@ -95,7 +95,7 @@ class RefreshOutcome(Generic[TDetails]):
                 else None
             ),
             "publication": str(self.publication),
-            "details": str(self.details),
+            "details": self.details.to_dict() if isinstance(self.details, SupportsToDict) else str(self.details),
             "skip_reason": self.skip_reason,
             "cooldown_remaining_seconds": self.cooldown_remaining_seconds,
             "message": (

@@ -19,7 +19,7 @@ class LayoutSelectorDict(TypedDict):
     """
     name: str
     """ i.e. layout variant name """
-    iter_reverse: bool
+    iter_reverse: NotRequired[bool]
 
 class LayoutSelector(Json.Serial[LayoutSelectorDict]):
     """
@@ -28,7 +28,7 @@ class LayoutSelector(Json.Serial[LayoutSelectorDict]):
     """
     name: str
     grid_id: str
-    btn_id: str | None=None
+    button_id: str | None=None
     vkey: int | None=None
     iter_reverse: bool = False # depends on how SAP sorts items in the grid...
     
@@ -48,7 +48,7 @@ class LayoutSelector(Json.Serial[LayoutSelectorDict]):
                 "one of [button_id (str), vkey (int)] is required",
                 self_name=self.name
             ))
-        self.btn_id = button_id
+        self.button_id = button_id
         self.vkey = vkey
         self.iter_reverse = iter_reverse
 

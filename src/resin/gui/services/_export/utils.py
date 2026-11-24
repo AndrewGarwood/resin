@@ -74,8 +74,8 @@ def handle_layout_selection(session: Session, layout: LayoutSelector, /):
     if (not layout):
         return None
     try:
-        if (layout.btn_id):
-            session.press_button(layout.btn_id)
+        if (layout.button_id):
+            session.press_button(layout.button_id)
         elif (layout.vkey is not None):
             session.active_window.send_vkey(layout.vkey)
         else: # should never reach here if ExportOptions is valid... b/c throws if missing both btn_id and vkey

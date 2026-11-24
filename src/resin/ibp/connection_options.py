@@ -78,5 +78,12 @@ class ConnectionIdentity:
             server_url=options.server_url,
             # param_str=options.param_str
         )
+    def to_dict(self):
+        return {
+            "name": self.name,
+            "planning_area": self.planning_area,
+            "server_url": self.server_url,
+            "param_str": self.param_str
+        }
 
 __all__ = export(ConnectionOptions, ConnectionOptionsDict)

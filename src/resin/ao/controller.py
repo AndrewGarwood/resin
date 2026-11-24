@@ -55,7 +55,7 @@ class Controller(BaseController):
         pump: Callable[[], None] = runtime.pump_waiting_messages,
         now: Callable[[], datetime] = datetime.now,
     ):
-        self.options = ControllerOptions.from_any(options)
+        self.options = ControllerOptions.from_object_source(options)
         super().__init__(
             options=self.options,
             session_factory=session_factory,
