@@ -20,6 +20,10 @@ class FileOptions(Json.Serial[FileOptionsDict]):
     - @property def outdir(self) -> Path: ...
     - @property def name(self) -> str: ...
     ```
+    *`@note`* `FileOptions.from_dict()` also allows for the `outdir` value to be passed in with different keys:
+        - `outdir=(data.get('dir') or data.get('parent') or data.get("outdir"))`
+        - b/c `dir` or `parent` would probably be better than `outdir` 
+        ... I should just change the param name.
     """
     _path: Path
     def __init__(
@@ -119,9 +123,6 @@ class FileOptions(Json.Serial[FileOptionsDict]):
     @classmethod
     def from_dict(cls, data: FileOptionsDict | dict[str, Any], /) -> Self:
         try:
-            _how = data.get('how_apply_ref')
-            if (_how and _how != 'auto'): 
-                _how = fs.RenameOperation.resolve(_how)
             return cls(
                 path=data.get("path"),
                 outdir=(data.get('dir') or data.get('parent') or data.get("outdir")),

@@ -16,6 +16,11 @@ class LayoutOptionsDict(TypedDict):
 
 @dataclass(repr=False)
 class LayoutOptions(Json.Serial[LayoutOptionsDict]):
+    """
+    - `@dataclass(repr=False)`
+    - *`@extends`* `Json.Serial[LayoutOptionsDict]`
+    - *`@note`* `LayoutOptions.from_dict(data)` gets `self.name` from `data.get('name') or data.get('variant')`
+    """
     field_id: str
     name: str
     @classmethod
@@ -24,7 +29,7 @@ class LayoutOptions(Json.Serial[LayoutOptionsDict]):
             name = data.get('name') or data.get('variant')
             return cls(
                 field_id=data['field_id'],
-                name=require.non_empty_string(name),
+                name=require.non_empty_string(name, "LayoutOptions.name"),
             )
         except Exception as e:
             raise RuntimeError(LogMsg.err(e, received=Json.serialize(data))) from e

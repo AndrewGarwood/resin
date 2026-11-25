@@ -42,6 +42,7 @@ from .global_configuration import (GlobalConfiguration, GlobalConfigurationDict)
 from .connection_options import (ConnectionOptions, ConnectionIdentity, ConnectionOptionsDict)
 from .workbook_options import (WorkbookOptions)
 from .refresh_ui import (RefreshUI, RibbonRefreshUI)
+from .refresh_details import RefreshDetails
 from ._options import (ControllerOptions, ControllerOptionsDict)
 
 mlog = get_logger(__file__, name_depth=1)
@@ -49,26 +50,6 @@ mlog = get_logger(__file__, name_depth=1)
 EXCEL_UI_LOCK = threading.RLock()
 _EXCEL_OBJECT_ERROR = -2146827284
 T = TypeVar("T")
-
-
-@dataclass(frozen=True)
-class RefreshDetails():
-    requested_connection: ConnectionIdentity
-    observed_connection: ConnectionIdentity | None
-    connect_called: bool
-    binding_reused: bool | None = None
-
-    def to_dict(self):
-        return {
-            "requested_connection": self.requested_connection.to_dict(),
-            "observed_connection": (
-                self.observed_connection.to_dict() 
-                if self.observed_connection 
-                else None
-            ),
-            "connect_called": self.connect_called,
-            "binding_reused": self.binding_reused
-        }
 
 
 class Controller(BaseController):
@@ -239,6 +220,9 @@ class Controller(BaseController):
             return self.ibp.GetActiveConnection(ws)
         except Exception:
             return None
+
+    def _is_worksheet_connected(self, ws: win32.CDispatch, /) -> bool:
+        return self._get_active_connection(ws) is not None
 
     def _get_worksheet_connections(self, ws: win32.CDispatch, /) -> Any:
         return self.ibp.GetConnections(ws)
@@ -460,7 +444,7 @@ class Controller(BaseController):
         force: bool=False
     ) -> RefreshOutcome[RefreshDetails]:
         """
-        *`@returns`* `outcome (RefreshOutcome[RefreshDetails]) (class)`
+        *`@returns`* `outcome (RefreshOutcome[RefreshDetails]) (dataclass)`
         ```
         status: RefreshStatus
         path: Path # updated data workbook is here
@@ -594,4 +578,4 @@ class Controller(BaseController):
                 
             )
 
-__all__ = export(Controller, RefreshDetails)
+__all__ = export(Controller)

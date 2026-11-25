@@ -7,13 +7,17 @@ from pyqi import (Json, require, export)
 from lute import LogMsg
 
 
-class ConnectionOptionsDict(TypedDict, total=False):
+
+class ConnectionIdentityDict(TypedDict, total=False):
     """ `TypedDict, total=False` """
     name: Required[str]
     planning_area: str
     server_url: str
     is_default: bool
-    # param_str: str
+    
+class ConnectionOptionsDict(ConnectionIdentityDict, total=False):
+    """ *`@extends`* `ConnectionIdentityDict` """
+    is_default: bool
 
 class ConnectionOptions(Json.Serial[ConnectionOptionsDict]):
     """
@@ -35,13 +39,11 @@ class ConnectionOptions(Json.Serial[ConnectionOptionsDict]):
         planning_area: str | None = None,
         server_url: str | None = None,
         is_default: bool = True,
-        # param_str: str | None = None
     ) -> None:
         self.name = name
         self.planning_area = planning_area
         self.server_url = server_url
         self.is_default = is_default
-        # self.param_str = param_str
 
     @classmethod
     def from_dict(cls, data: ConnectionOptionsDict | dict[str, Any], /) -> Self:
@@ -51,7 +53,6 @@ class ConnectionOptions(Json.Serial[ConnectionOptionsDict]):
                 planning_area=data.get("planning_area", None),
                 server_url=data.get("server_url", None),
                 is_default=data.get("is_default", True),
-                # param_str=data.get('param_str', None),
             )
         except (ValueError, KeyError): raise
         except Exception as e:
@@ -60,15 +61,16 @@ class ConnectionOptions(Json.Serial[ConnectionOptionsDict]):
                 received=Json.serialize(data)
             )) from e
 
+
 @dataclass(frozen=True)
-class ConnectionIdentity:
+class ConnectionIdentity(Json.Serial[ConnectionIdentityDict]):
+    """
+    - `@dataclass(frozen=True)`
+    - *`@extends`* `Json.Serial[ConnectionIdentityDict]`
+    """
     name: str
     planning_area: str | None = None
     server_url: str | None = None
-    param_str: str | None = None
-    """ 
-    return value of `self.ibp.GetActiveConnection(<Worksheet>)`
-    """
 
     @classmethod
     def from_options(cls, options: ConnectionOptions, /):
@@ -76,14 +78,26 @@ class ConnectionIdentity:
             name=options.name,
             planning_area=options.planning_area,
             server_url=options.server_url,
-            # param_str=options.param_str
         )
-    def to_dict(self):
+
+    @classmethod
+    def from_dict(cls, data: ConnectionIdentityDict | dict[str, Any], /) -> Self:
+        return cls(
+            name=data['name'],
+            planning_area=data.get("planning_area", None),
+            server_url=data.get("server_url", None),
+        )
+
+    def to_dict(self) -> ConnectionIdentityDict | dict[str, Any]:
         return {
             "name": self.name,
             "planning_area": self.planning_area,
             "server_url": self.server_url,
-            "param_str": self.param_str
         }
 
-__all__ = export(ConnectionOptions, ConnectionOptionsDict)
+__all__ = export(
+    ConnectionOptions, 
+    ConnectionOptionsDict,
+    ConnectionIdentity,
+    ConnectionIdentityDict
+)
