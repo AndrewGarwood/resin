@@ -4,7 +4,6 @@
 from dataclasses import dataclass
 from typing import (Self, TypedDict, Any)
 from pyqi import (Json, export)
-from lute import LogMsg
 
 
 class VariantOptionsDict(TypedDict):

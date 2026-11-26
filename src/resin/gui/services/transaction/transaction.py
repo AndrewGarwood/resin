@@ -6,7 +6,7 @@ from pathlib import Path
 import threading, time
 from typing import (Any, Callable, Optional, Self)
 from pyqi.models import StageTransition, Telemetry, Flow
-from pyqi import (fs, require, dt, safe, export, Array)
+from pyqi import (fs, require, dt, export, Array)
 from lute import LogMsg, get_logger, annotate
 from pyqi.models._result import Result
 from resin.utils import (default_copy_to_clipboard)

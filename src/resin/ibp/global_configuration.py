@@ -3,6 +3,9 @@
 
 - [Enabling SAP IBP APIs](https://help.sap.com/docs/SAP_INTEGRATED_BUSINESS_PLANNING/b28ffdd739bf45678ef36c44e64652d7/2277db899c02476ea972b101f1302456.html)
 
+- used to describe what your current configuration is. 
+Not sure how to change configuration values b/c they are managed by 
+company's SAP admins, who remain unresponsive. 
 """
 from dataclasses import dataclass
 from pyqi import (Json, BaseStrEnum, export)

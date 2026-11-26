@@ -134,11 +134,7 @@ Options: `--hold none|application|session`, `--repeat 1..10`,
 positive and at most 300), and `--config PATH`.
 
 The probe reads provisioner and `test-lx02` options from `tests.config.json`,
-requires one source session and LX02 toolbar export, and saves only to:
-
-```text
-C:\Users\garwoan1\workspaces.local\operations\plnatt\test_data
-```
+requires one source session and LX02 toolbar export.
 
 Names include a timestamp, mode, run index, and random suffix. JSON records on
 stdout identify the environment, actual handled dialog, path, time, byte count,

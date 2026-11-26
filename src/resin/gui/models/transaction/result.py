@@ -4,9 +4,9 @@
 from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any
-from pyqi import (export, Result, Telemetry, Json)
+from pyqi import (export, Telemetry, Json) # Result, 
 from .._export.result import (CompletedExport)
-from lute import LogMsg
+# from lute import LogMsg
 
 @dataclass(repr=False)
 class TransactionDetails():

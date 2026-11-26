@@ -87,9 +87,7 @@ a raw application dispatch. It does not provide a managed cache.
 
 Use `resin.utils.runtime.com_apartment()` around COM work on the calling
 thread. It balances `pythoncom.CoInitialize()` and `CoUninitialize()` even
-when work raises. **There is no `ComGateway.com_apartment()` method.**
-`resin.gui.com.runtime` only provides its older message-pump helper; core
-connection polling uses `resin.utils.runtime`.
+when work raises. core connection polling uses `resin.utils.runtime`.
 
 Do not pass raw COM objects between threads. Core/component wrappers retain
 IDs and resolve dispatch objects on each operation, but that does not make
@@ -577,7 +575,7 @@ options = TransactionOptions.from_dict({
     "export": {
         "method": "keyboard_shortcut",
         "invoke": {"vkey": 16},
-        "file": {"path": r"C:\\reports\\selection.xlsx"},
+        "file": {"path": "C:\\reports\\selection.xlsx"},
         "overwrite": False,
     },
 })

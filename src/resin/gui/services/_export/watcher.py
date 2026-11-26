@@ -3,13 +3,12 @@
 """
 
 from dataclasses import dataclass
-import sys
 import time, re
 import win32gui
 from pathlib import Path
 from contextlib import contextmanager
 from typing import (Any, Iterable)
-from pyqi import (Array, require, Function, fs)
+from pyqi import (Array, require, Function, fs, export)
 from pyqi.models import RetryOptions
 from lute import LogMsg, get_logger, annotate
 from threading import (Event, Thread)
@@ -107,7 +106,6 @@ class NativeSaveDialogWatcher(NativeDialogWatcher[NativeSaveDialogOptions, BaseW
                 options=str(options),
                 outpath=str(outpath)
             )) from e
-
 
 
 def start_watcher(
@@ -366,3 +364,6 @@ def _find_save_dialog(
     )
 
     return candidates[0]
+
+
+__all__ = export(NativeDialogWatcher, start_watcher, native_save_dialog_watcher)

@@ -4,7 +4,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field as _field
-from typing import (Any, Callable, Iterable, TypeAlias, Sequence)
+from typing import (Any, Callable, Iterable)
 from pyqi import (export)
 from pyqi.models import (RetryOptions)
 from resin.utils.winauto import (

@@ -1,7 +1,7 @@
 """
 *`@file`* `gui/models/_export/layout`
 """
-from typing import (TypedDict, Required, NotRequired, Any,  Mapping)
+from typing import (TypedDict, NotRequired, Any,  Mapping)
 from pyqi import (Json, require, export)
 from lute import (LogMsg)
 

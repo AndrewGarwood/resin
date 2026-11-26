@@ -10,3 +10,4 @@ from . import (
 from .ibp import (RefreshDetails)
 from ._workbook import *
 from .utils import winauto, runtime
+from .models import *

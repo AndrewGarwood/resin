@@ -1,16 +1,13 @@
 """
-@file gui/services/pool/worker
+*`@file`* `gui/services/pool/worker`
 """
 
 from __future__ import annotations
-
 from concurrent.futures import Future
 from queue import Queue
 import threading
 from typing import Any
-
 from pyqi import require
-
 from resin.utils import runtime
 from resin.gui.core.session import Session
 from resin.gui.services.transaction import Transaction

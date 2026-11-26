@@ -55,3 +55,5 @@ def wait_for_commands(
             f"One or more worker commands failed: {formatted}",
             errors=errors,
         )
+        
+__all__ = ["wait_for_commands"]

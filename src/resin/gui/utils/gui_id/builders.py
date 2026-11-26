@@ -64,11 +64,11 @@ def execute_txn_btn(
 
 def cell_index_suffix(*, row: int, col: int=1) -> str:
     """
-    *`@returns`* `"[{col}, {row}]"` 
+    *`@returns`* `"[{col},{row}]"` 
     """
     return "".join([
         "[",
-        ", ".join(str(x) for x in (
+        ",".join(str(x) for x in (
             require.positive_integer(col, 'ctxt_cell_column_index'),
             require.non_negative_integer(row, 'ctxt_cell_row_index')
         )),
@@ -83,7 +83,7 @@ def ctxt_cell_id(
     col: int=1
 ) -> str:
     """
-    *`@returns`* `f"{field_id}[{col}, {row}]"`
+    *`@returns`* `f"{field_id}[{col},{row}]"`
     """
     return f"{field_id}{cell_index_suffix(row=row, col=col)}"
 

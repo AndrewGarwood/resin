@@ -1,10 +1,12 @@
+"""
+*`@file`* `gui/core/connection`
+"""
+
 from __future__ import annotations
 
 import time
 from typing import TYPE_CHECKING, Optional, Self
-
 from pyqi import require
-
 from ..com.gateway import ComGateway
 from ..com.types import DispatchLike
 from resin.utils import runtime
@@ -403,3 +405,7 @@ class Connection:
             ) from e
     def __repr__(self) -> str:
         return f"<Connection id={self.id!r}>"
+    
+
+
+__all__ = ["Connection"]

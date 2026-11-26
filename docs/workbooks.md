@@ -133,9 +133,9 @@ from resin import ao
 from resin.ao.workbook_options import WorkbookOptions
 
 def refresh_ao():
-    options = ao.ControllerOptions.from_dict({"staging": r"C:\resin-stage"})
-    workbook = WorkbookOptions(r"C:\reports\analysis.xlsm", set_prompts=True)
-    workbook.prompts = {"P_DATE": {"sentinel": "CURRENT_DAY"}}
+    options = ao.ControllerOptions.from_dict({"staging": "C:\\resin-stage"})
+    workbook = WorkbookOptions("C:\\reports\\analysis.xlsm", set_prompts=True)
+    workbook.prompts = {"{field_id}": {"sentinel": "CURRENT_DAY"}}
     with ao.Controller(options) as controller:
         ao.ensure_sap_ao_ready(
             controller.session.excel, addin_name=options.addin_name
@@ -242,13 +242,15 @@ Example using explicit no-reuse verification (calling it drives Excel/ribbon):
 from resin import ibp
 
 def refresh_ibp():
-    options = ibp.ControllerOptions.from_dict({"staging": r"C:\resin-stage"})
+    options = ibp.ControllerOptions.from_dict({"staging": "C:\\resin-stage"})
     connection = ibp.ConnectionOptions(name="Configured SAP connection")
     with ibp.Controller(
-        options, connection, binding_verifier=None
+        options, 
+        connection, 
+        binding_verifier=None
     ) as controller:
         controller.warning_options["process"] = controller.session.pid
-        return controller.refresh(r"C:\reports\planning.xlsm")
+        return controller.refresh("C:\\reports\\planning.xlsm")
 ```
 
 IBP refresh acquires a process-local module `RLock` under the operation deadline,
@@ -262,7 +264,7 @@ before commit/publication; it does not permit cross-thread controller use or
 serialize Excel in other processes.
 
 `GlobalConfiguration` defaults both `EXCEL_PLANNING_VIEW_APIS` and
-`EXCEL_MASTER_DATA_APIS` to `"none"` and describes, rather than changes, SAP policy.
+`EXCEL_MASTER_DATA_APIS` to `"none"` and *describes*, rather than changes, SAP policy.
 **Current code caveat:** `refresh_enabled` tests the *master-data* entry against
 planning-view authorization (`"read"`, `"simulate"`, `"save"`), not the
 planning-view entry. Do not assume setting planning-view permission alone selects

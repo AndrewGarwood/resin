@@ -7,7 +7,6 @@ that resolves, uses, and conditionally closes its bound session."
 from __future__ import annotations
 from collections.abc import Iterable
 from concurrent.futures import Future
-from dataclasses import dataclass
 from typing import (Any, Callable, Self, Sequence, overload, Literal)
 from resin.utils import runtime
 from resin.gui.services.pool.connection import ConnectionLease

@@ -74,3 +74,11 @@ class AppManager():
         if (cls.is_strict() and value > CONN_SESSION_LIMIT):
             raise ValueError(f"(strict) connection_session_capacity cannot exceed {CONN_SESSION_LIMIT=}")
         cls._connection_session_capacity = value
+
+
+__all__ = [
+    "AppManager",
+    "SAPGUI_OBJECT_ID",
+    "APP_SESSION_LIMIT",
+    "DEFAULT_EXE_PATH"
+]

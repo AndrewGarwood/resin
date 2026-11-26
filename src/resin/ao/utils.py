@@ -5,7 +5,7 @@
 import time
 from typing import Any, Callable, Sequence
 
-from pyqi import (require, export, dt)
+from pyqi import (require, export)
 
 from resin._workbook.deadline import Deadline
 from resin._workbook.exceptions import (

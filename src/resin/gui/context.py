@@ -3,11 +3,8 @@
 - immutable application, connection, session, and component IDs.
 """
 from __future__ import annotations
-
 from dataclasses import dataclass, replace
-
 from .exceptions import SapInvalidContextError
-
 
 @dataclass(frozen=True, slots=True)
 class SapContext:
@@ -116,3 +113,6 @@ class SapContext:
     
     def get_component_id(self) -> str:
         return self.require_component()[2]
+    
+    
+__all__ = ["SapContext"]

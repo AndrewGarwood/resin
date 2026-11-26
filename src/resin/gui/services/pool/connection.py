@@ -2,9 +2,7 @@
 *`@file`* `gui/services/pool/connection`
 """
 from __future__ import annotations
-
 from dataclasses import dataclass
-
 from pyqi import require, export
 
 from resin.gui.com.gateway import ComGateway

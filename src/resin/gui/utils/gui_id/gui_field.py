@@ -35,7 +35,7 @@ _INDEX_PATTERN = re.compile(
         \[
             (?P<first_index>\d+)
             (?:
-                ,
+                ,\s*
                 (?P<second_index>\d+)
             )?
         \]

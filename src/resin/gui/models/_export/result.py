@@ -3,7 +3,7 @@
 """
 from pathlib import Path
 from dataclasses import dataclass, field
-from pyqi import (export, Result, Telemetry, Json)
+from pyqi import (export, Telemetry, Json) # Result, 
 
 @dataclass
 class ExportDetails:

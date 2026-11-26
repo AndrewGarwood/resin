@@ -2,34 +2,27 @@
 *`@file`* `ibp/controller`
 """
 from __future__ import annotations as _annotations
-from dataclasses import dataclass
 from typing import Any, Callable, Generator, Self, Sequence, TypeVar
 from uuid import uuid4
 import shutil, threading, time
-import sys
 from contextlib import contextmanager
 import win32com.client as win32
 from pywintypes import com_error
 from datetime import datetime, timedelta
 from pathlib import Path
 from lute import (LogMsg, get_logger, annotate)
-from pyqi import (
-    Json,
-    fs, dt, export,
-    safe, guard, require
-)
+from pyqi import (Json, fs, dt, guard)
 from noxl.engines.xlcom.session import ExcelSession
 from noxl.engines.xlcom.workbook import ManagedName
 
 from resin._workbook.transaction import WorkbookTransaction
-from resin._workbook.types import PublicationDisposition
 from resin.utils import winauto, runtime
 from resin._workbook import (
     ConnectionBindingError, ConfigurationError, BaseController, Deadline,
     RefreshOutcome, RefreshStatus, SessionFactory,
     cooldown_remaining, parse_refresh_timestamp
 )
-from .warning_watcher import version_warning_watcher
+from .warning_watcher import warning_watcher
 from .types import (ConnectionMode, WorkbookProperty)
 from .binding import (
     BindingState, 
@@ -37,7 +30,7 @@ from .binding import (
     BindingVerifier, 
     naive_binding_verifier
 )
-from .constants import (VERSION_WARNING_WINDOW_TITLE)
+from .constants import (WARNING_WINDOW_TITLE)
 from .global_configuration import (GlobalConfiguration, GlobalConfigurationDict)
 from .connection_options import (ConnectionOptions, ConnectionIdentity, ConnectionOptionsDict)
 from .workbook_options import (WorkbookOptions)
@@ -99,7 +92,7 @@ class Controller(BaseController):
         self.backend = backend
         self.warning_options = (
             warning_options 
-            or winauto.WindowOptionsDict(title=VERSION_WARNING_WINDOW_TITLE)
+            or winauto.WindowOptionsDict(title=WARNING_WINDOW_TITLE)
         )
         self.verbose = verbose
         self._verifier = binding_verifier
@@ -249,7 +242,7 @@ class Controller(BaseController):
                 self._identity = observation.identity
                 return requested, observation.identity, False
         deadline.check("IBP Connect")
-        with version_warning_watcher(self.warning_options):
+        with warning_watcher(self.warning_options):
             self.ibp.Connect(requested.name)
         deadline.check("IBP Connect completion")
         self.wait_for_idle(deadline)
@@ -373,7 +366,10 @@ class Controller(BaseController):
             return format_value(value)
 
     @contextmanager
-    def _property_workbook(self, wb: win32.CDispatch | WorkbookOptions) -> Generator[win32.CDispatch]:
+    def _property_workbook(
+        self, 
+        wb: win32.CDispatch | WorkbookOptions
+    ) -> Generator[win32.CDispatch]:
         """
         context manager for reading properties of/in workbook com object
         """
@@ -410,7 +406,11 @@ class Controller(BaseController):
         with self._property_workbook(wb) as opened:
             return self._timestamp(opened)
     
-    def _wait_timestamp(self, txn: WorkbookTransaction, previous: datetime | None) -> datetime:
+    def _wait_timestamp(
+        self, 
+        txn: WorkbookTransaction, 
+        previous: datetime | None
+    ) -> datetime:
         observed: datetime | None = None
         changed_at: float | None = None
         while True:
@@ -447,7 +447,7 @@ class Controller(BaseController):
         *`@returns`* `outcome (RefreshOutcome[RefreshDetails]) (dataclass)`
         ```
         status: RefreshStatus
-        path: Path # updated data workbook is here
+        path: Path # refreshed workbook is here
         operation_id: str
         started_at: datetime
         ended_at: datetime
@@ -578,4 +578,4 @@ class Controller(BaseController):
                 
             )
 
-__all__ = export(Controller)
+__all__ = ["Controller"]

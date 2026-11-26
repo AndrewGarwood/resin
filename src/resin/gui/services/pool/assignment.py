@@ -9,6 +9,7 @@ independently pick up another transaction as soon as they finish."
 from .worker import (SessionWorker)
 from ..transaction import (Transaction)
 from typing import Sequence
+from pyqi import export
 from dataclasses import dataclass
 from lute import LogMsg
 
@@ -34,3 +35,5 @@ def assign_batch(
         TransactionAssignment(transaction, worker)
         for transaction, worker in zip(transactions, workers)
     ]
+    
+__all__ = export(TransactionAssignment, assign_batch)

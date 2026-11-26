@@ -3,8 +3,8 @@
 """
 from dataclasses import dataclass
 from pathlib import Path
-from typing import (TypedDict, Any, Self, Required)
-from pyqi import (Json, require, export, fs, Array)
+from typing import (Any, Self)
+from pyqi import (Json, require, export, fs)
 from lute import LogMsg
 from .types import (ConnectionMode)
 
@@ -83,3 +83,5 @@ class ControllerOptions(BaseControllerOptions):
 
     # def __str__(self) -> str:
     #     return f"<{self.__cls_name__}>" + Json.stringify(self.to_dict())
+    
+__all__ = export(ControllerOptions, ControllerOptionsDict)

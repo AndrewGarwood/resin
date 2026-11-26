@@ -3,7 +3,7 @@
 """
 from dataclasses import dataclass
 from typing import (TypedDict, Any, Self, Required)
-from pyqi import (Json, require, export)
+from pyqi import (Json, export)
 from lute import LogMsg
 
 

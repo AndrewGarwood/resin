@@ -3,7 +3,6 @@
 """
 from pyqi.models import BaseStrEnum
 from pyqi.utils import export
-from pyqi import Array
 from typing import (Any, Literal, Mapping, TypeGuard, TypedDict, NotRequired)
 
 

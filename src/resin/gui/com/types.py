@@ -5,6 +5,7 @@
 from __future__ import annotations
 
 from typing import Any, Protocol
+from pyqi import export
 
 class DispatchLike(Protocol):
     """
@@ -23,3 +24,5 @@ class ChildrenLike(Protocol):
     Count: int
     def __call__(self, index: int) -> DispatchLike:
         ...
+
+__all__ = export(DispatchLike, ChildrenLike)

@@ -5,7 +5,7 @@ from unittest.mock import Mock, patch
 from resin.ibp.controller import Controller
 from resin.ibp.binding import BindingObservation, BindingState
 from resin.ibp.connection_options import ConnectionIdentity
-from resin.ibp.warning_watcher import version_warning_watcher
+from resin.ibp.warning_watcher import warning_watcher
 
 
 class VersionWarningWatcherTests(unittest.TestCase):
@@ -69,7 +69,7 @@ class VersionWarningWatcherTests(unittest.TestCase):
 
         desktop.windows.side_effect = windows
         with patch("resin.ibp.warning_watcher.Desktop", return_value=desktop):
-            with version_warning_watcher(12345) as watcher:
+            with warning_watcher(12345) as watcher:
                 self.assertTrue(polled.wait(2))
         self.assertFalse(watcher.handled)
         self.assertIsNone(watcher.error)
@@ -86,7 +86,7 @@ class VersionWarningWatcherTests(unittest.TestCase):
         desktop = Mock()
         desktop.windows.return_value = [dialog]
         with patch("resin.ibp.warning_watcher.Desktop", return_value=desktop):
-            with version_warning_watcher(12345) as watcher:
+            with warning_watcher(12345) as watcher:
                 self.assertTrue(inspected.wait(2))
         button.click.assert_not_called()
         self.assertFalse(watcher.handled)
@@ -98,7 +98,7 @@ class VersionWarningWatcherTests(unittest.TestCase):
         with patch("resin.ibp.warning_watcher.Desktop", return_value=desktop):
             with patch("resin.ibp.warning_watcher.mlog"):
                 with self.assertRaisesRegex(RuntimeError, "watcher failed") as raised:
-                    with version_warning_watcher(12345) as watcher:
+                    with warning_watcher(12345) as watcher:
                         self.assertTrue(watcher.done.wait(2))
         self.assertIs(raised.exception.__cause__, failure)
 
@@ -107,7 +107,7 @@ class VersionWarningWatcherTests(unittest.TestCase):
         with patch("resin.ibp.warning_watcher.Desktop") as desktop:
             desktop.return_value.windows.return_value = []
             with self.assertRaisesRegex(ValueError, "Connect failed"):
-                with version_warning_watcher(12345) as watcher:
+                with warning_watcher(12345) as watcher:
                     raise ValueError("Connect failed")
         assert watcher is not None
         self.assertTrue(watcher.done.is_set())

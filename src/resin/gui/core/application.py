@@ -1,5 +1,9 @@
+"""
+*`@file`* `gui/core/application`
+"""
+
 from __future__ import annotations
-from typing import TYPE_CHECKING, Any, Optional, Self
+from typing import Any, Optional, Self
 from pyqi.validation import require
 from win32com.client import CDispatch
 from ..com.gateway import ComGateway
@@ -410,3 +414,6 @@ class Application:
 
     def __repr__(self) -> str:
         return f"<Application id={self.id!r}>"
+
+
+__all__ = ["Application"]

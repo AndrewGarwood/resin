@@ -2,6 +2,7 @@
 *`@file`* `gui/services/transaction/multi_selection`
 """
 from typing import Any, Callable
+from pyqi import export
 from resin.utils import (default_copy_to_clipboard)
 from resin.gui.components.control import Tab, TextField
 from resin.gui.components.table_control import TableControl
@@ -275,3 +276,9 @@ def apply_multi_selection(
     wait_for_session_idle(session)
     if session.active_window.id != original_window:
         raise SapGuiError("Multiple-selection dialog did not return to its original window")
+
+__all__ = export(
+    is_multi_selection_value, 
+    prepare_multi_selection, 
+    apply_multi_selection
+)

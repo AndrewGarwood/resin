@@ -16,7 +16,7 @@ from .utils import (
     resolve_native_save_options, 
     attempt_row_count
 )
-from .dialog import (handle_export_dialog, _retain_scripting_session)
+from .dialog import (handle_export_dialog, retain_scripting_session)
 
 
 @EXPORT_METHOD_REGISTRY.register(ExportMethod.KEYBOARD_SHORTCUT)
@@ -37,7 +37,7 @@ def via_keyboard_shortcut(
             name=f"ExportOptions<{ExportMethod.KEYBOARD_SHORTCUT.value}>.invoke.vkey"
         )
         save_options = resolve_native_save_options(save_dialog_options)
-        with EXPORT_UI_LM.engage_lock(), _retain_scripting_session(session):
+        with EXPORT_UI_LM.engage_lock(), retain_scripting_session(session):
             wnd = session.main_window
             if (not wnd.is_vkey_allowed(vkey)):
                 raise SapGuiError(f"{vkey=} is not allowed in current state")

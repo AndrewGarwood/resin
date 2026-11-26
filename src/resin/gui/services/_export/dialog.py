@@ -14,11 +14,11 @@ from resin.gui.core.session import (Session)
 from .watcher import (NativeSaveDialogWatcher)
 from .constants import (NATIVE_SAVE_DIALOG_TIMEOUT)
 
-from lute import (LogMsg, get_logger)
+from lute import (get_logger)
 mlog = get_logger(__file__)
 
 @contextmanager
-def _retain_scripting_session(session: Session) -> Generator[None, None, None]:
+def retain_scripting_session(session: Session) -> Generator[None, None, None]:
     """
     - SAP's dialog substitution depends on a live GuiSession reference, not
     just the application or a wrapper that re-resolves each COM operation.
@@ -84,4 +84,4 @@ def handle_export_dialog(
         f"No export dialog was handled within {timeout:.1f} seconds"
     )
 
-__all__ = export(handle_export_dialog)
+__all__ = export(handle_export_dialog, retain_scripting_session)

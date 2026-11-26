@@ -10,12 +10,12 @@ from pywintypes import com_error
 from contextlib import (contextmanager, ExitStack)
 from pathlib import Path
 from pyqi import (require, Json, String)
-from lute import LogMsg, get_logger
+from lute import get_logger
 from noxl.engines.xlcom.session import (ExcelSession)
 from .types import (StagingPolicy, ControllerState)
 from .base_controller_options import (BaseControllerOptions, BaseControllerOptionsDict)
 from .exceptions import (
-    ConfigurationError, DeadSessionError, 
+    DeadSessionError, 
     WorkbookControllerError, WorkbookIOError
 )
 from resin.utils import runtime

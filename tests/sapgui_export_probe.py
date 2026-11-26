@@ -34,7 +34,7 @@ from resin.utils.winauto import is_owned_by
 
 
 SCRIPTING_KEY = r"Software\SAP\SAPGUI Front\SAP Frontend Server\Scripting"
-OUTPUT_DIRECTORY = Path.home() / r"workspaces.local\operations\plnatt\test_data"
+OUTPUT_DIRECTORY = Path.home() / "workspaces.local\\resin\\test_data"
 
 
 def native_dialog_setting() -> int | None:

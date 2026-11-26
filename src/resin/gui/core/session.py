@@ -6,21 +6,19 @@ from __future__ import annotations
 import time
 from typing import TYPE_CHECKING, Any, Literal, TypeVar, overload
 from win32com.client import CDispatch
-
 from ..com.gateway import ComGateway
 from ..com.types import DispatchLike
 from ..components.factory import wrap_dispatch
 from ..context import SapContext
 from ..exceptions import (
     SapComError,
-    SapComponentNotFoundError,
     SapGuiError,
     SapGuiStatusError
 )
 from pyqi import (require, Function, safe)
 from lute import LogMsg, annotate
 from resin.utils import runtime
-from resin.gui.utils import (gui_id as GUI, SupportsSet)
+from resin.gui.utils import (gui_id as GUI)
 from ..utils.mixin import (FindMixin)
 
 if TYPE_CHECKING:

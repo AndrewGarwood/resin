@@ -5,21 +5,18 @@ import time
 from typing import (Callable)
 from pyqi import (require, fs)
 from pyqi.models._result import Result
-from resin.gui.components.control import Button
 from resin.gui.components.grid_view import GridView
 from resin.gui.models import (ExportMethod, ExportOptions)
 from resin.gui.core import Session
 from resin.gui.models._export.result import ExportDetails
-from resin.gui.utils import (wait_for_component, gui_id as GUI)
+from resin.gui.utils import (gui_id as GUI)
 from resin.utils.winauto import (Win32Window)
 from .registry import (EXPORT_METHOD_REGISTRY)
 from .watcher import (native_save_dialog_watcher, NativeSaveDialogOptions)
 from .locks import EXPORT_UI_LM
 from .utils import (open_grid_context_menu_pywinauto, resolve_native_save_options)
-from .dialog import (handle_export_dialog, _retain_scripting_session)
-from .constants import (NATIVE_SAVE_DIALOG_TIMEOUT, NATIVE_SAVE_DIALOG_POLL)
+from .dialog import (handle_export_dialog, retain_scripting_session)
 
-# TODO: try invoking context menu without pywinauto by selecting a cell first;
 
 @EXPORT_METHOD_REGISTRY.register(ExportMethod.CONTEXT_MENU)
 def via_context_menu(
@@ -47,7 +44,7 @@ def via_context_menu(
         )
         grid_handle = grid.handle
         row_count = grid.row_count
-        with EXPORT_UI_LM.engage_lock(), _retain_scripting_session(session):
+        with EXPORT_UI_LM.engage_lock(), retain_scripting_session(session):
             wnd = session.main_window
             wnd_handle = wnd.handle
             with native_save_dialog_watcher(

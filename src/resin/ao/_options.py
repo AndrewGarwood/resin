@@ -2,14 +2,12 @@
 *`@file`* `ao/_options`
 """
 from dataclasses import dataclass
-from pathlib import Path
-from typing import (Any, Self, TypedDict, Required)
-from pyqi import (Json, fs, require, Array, export)
+from typing import (Any, Self)
+from pyqi import (Json, require, export)
 from lute import LogMsg
 from resin._workbook.base_controller_options import (
     BaseControllerOptions, BaseControllerOptionsDict
 )
-from resin._workbook.types import StagingPolicy
 from .constants import (COM_ADD_IN_NAME, DEFAULT_AO_DATASOURCE)
 
 

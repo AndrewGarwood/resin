@@ -2,7 +2,7 @@
 *`@file`* `gui/models/transaction/multiscreen`
 """
 from dataclasses import dataclass, replace
-from typing import (Any, Literal, Mapping, Self, TypedDict)
+from typing import (Any, Mapping, Self, TypedDict)
 from pyqi import export, Json, require
 from resin.gui.utils import gui_id
 from lute import LogMsg

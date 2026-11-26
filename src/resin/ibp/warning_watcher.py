@@ -13,10 +13,10 @@ from lute import get_logger
 from resin.utils.winauto.watcher import (NativeDialogWatcher)
 from resin.utils import winauto
 from resin.utils.runtime import com_apartment
-from .constants import (VERSION_WARNING_WINDOW_TITLE)
 
 mlog = get_logger(__file__, name_depth=1)
 
+# TODO: generalize warning watcher to handle pressing window buttons like "Ok", "Yes", etc.
 
 class WarningDialogWatcher(NativeDialogWatcher[None, DialogWrapper]):
     def handle_dialog(
@@ -28,9 +28,8 @@ class WarningDialogWatcher(NativeDialogWatcher[None, DialogWrapper]):
         self.mark_handled()
         return None
 
-
 @contextmanager
-def version_warning_watcher(
+def warning_watcher(
     options: winauto.WindowOptionsDict, 
     /,
 ) -> Generator[WarningDialogWatcher, None, None]:
