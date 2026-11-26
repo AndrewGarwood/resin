@@ -5,10 +5,6 @@ build/
 dist/
 wheels/
 *.egg-info
-logs/
-*.crf.txt
-*.bak
-*.archive
 
 # Virtual environments
 .venv
@@ -16,3 +12,7 @@ logs/
 
 
 tests.config.json
+*.crf.txt
+*.bak
+*.archive
+logs/
